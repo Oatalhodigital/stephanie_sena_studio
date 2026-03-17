@@ -1,0 +1,173 @@
+:root {
+    --dourado: #D4AF37;
+    --preto: #121212;
+    --branco: #ffffff;
+    --cinza: #f9f9f9;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Poppins', sans-serif; scroll-behavior: smooth; }
+
+/* Navegação */
+header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 5%; background: white; position: sticky; top: 0; z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+.logo { font-family: 'Playfair Display', serif; font-weight: bold; letter-spacing: 2px; }
+nav a { text-decoration: none; color: #333; margin-left: 20px; font-size: 0.85rem; font-weight: 600; }
+.btn-mentoria-nav { color: var(--dourado); border-left: 1px solid #ddd; padding-left: 20px; }
+
+/* Hero */
+.hero { padding: 80px 5%; background: var(--cinza); }
+.hero-container { display: flex; align-items: center; justify-content: center; gap: 50px; flex-wrap: wrap; }
+.hero-img img { width: 300px; height: 300px; border-radius: 50%; border: 6px solid var(--dourado); object-fit: cover; }
+.hero-text { max-width: 500px; }
+.hero-text h1 { font-family: 'Playfair Display', serif; font-size: 2.8rem; margin: 15px 0; line-height: 1.1; }
+.gold-text { color: var(--dourado); font-size: 0.9rem; font-weight: bold; }
+.btn-gold { background: var(--dourado); color: white; padding: 15px 35px; text-decoration: none; display: inline-block; border-radius: 50px; margin-top: 25px; }
+
+/* Portfólio */
+.galeria { padding: 80px 5%; text-align: center; background: white; }
+.grid-trabalhos { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-top: 40px; }
+.foto-card img { width: 100%; height: 350px; object-fit: cover; border-radius: 8px; }
+
+/* Vendas e Agenda */
+.secao-vendas { padding: 80px 5%; background: var(--cinza); }
+.vendas-container { display: flex; gap: 40px; flex-wrap: wrap; justify-content: center; }
+.lista-precos, .agenda-interativa { background: white; padding: 40px; border-radius: 15px; flex: 1; min-width: 320px; max-width: 500px; }
+.item { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #eee; }
+.grade-horas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
+.hora-btn { padding: 12px; border: 1px solid var(--dourado); background: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
+.hora-btn.ativo { background: var(--dourado); color: white; }
+.hora-btn.ocupado { background: #eee; border: 1px solid #ccc; color: #aaa; cursor: not-allowed; text-decoration: line-through; }
+.btn-confirmar { width: 100%; padding: 15px; background: #25d366; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+.hidden { display: none; }
+
+.divisor { border: 0; height: 1px; background: #ddd; margin: 40px 0; }
+
+/* Mentoria */
+.mentoria-section { padding: 80px 5%; background: var(--preto); color: white; }
+.mentoria-grid { display: flex; align-items: center; gap: 60px; flex-wrap: wrap; }
+.mentoria-banner { flex: 1; min-width: 300px; }
+.mentoria-banner img { width: 100%; border-radius: 20px; border: 2px solid var(--dourado); }
+.mentoria-info { flex: 1.2; }
+.mentoria-info h2 { font-family: 'Playfair Display', serif; font-size: 2.5rem; color: var(--dourado); margin-bottom: 20px; }
+.check-list { list-style: none; margin: 30px 0; }
+.check-list li { margin-bottom: 10px; font-size: 1.1rem; }
+.btn-black { background: var(--dourado); color: white; padding: 15px 40px; text-decoration: none; display: inline-block; font-weight: bold; }
+
+footer { padding: 40px; text-align: center; font-size: 0.8rem; background: #111; color: #777; }
+/* Efeito Reveal/Flutuante */
+.reveal {
+    position: relative;
+    transform: translateY(50px);
+    opacity: 0;
+    transition: 1s all ease;
+}
+
+.reveal.active {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* Ajuste das fotos (Garante que apareçam conforme sua pasta) */
+.hero-img img, .mentoria-banner img {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.foto-card img {
+    transition: transform 0.5s ease;
+}
+
+.foto-card:hover img {
+    transform: scale(1.05);
+}
+
+/* Área de Agradecimento */
+.thanks-area {
+    padding: 40px 0;
+    border-top: 1px solid #333;
+    margin-bottom: 20px;
+}
+
+.thanks-area h3 {
+    font-family: 'Playfair Display', serif;
+    color: var(--dourado);
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+}
+/* Efeito de surgimento flutuante */
+.reveal {
+    position: relative;
+    transform: translateY(50px);
+    opacity: 0;
+    transition: 1s all ease-out;
+}
+.reveal.active {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* Ajuste das imagens */
+.foto-card img {
+    width: 100%;
+    height: 350px;
+    object-fit: cover;
+    border-radius: 10px;
+    transition: 0.4s;
+}
+.foto-card:hover img {
+    transform: scale(1.03);
+}
+
+/* Estilo do Rodapé de Agradecimento */
+.thanks-area {
+    padding: 40px 20px;
+    background: #111;
+    color: white;
+    margin-top: 50px;
+}
+.thanks-area h3 {
+    color: var(--dourado);
+    font-family: 'Playfair Display', serif;
+    margin-bottom: 10px;
+}
+/* Estilo da Carta da Mentora */
+.carta-mentora {
+    background: rgba(212, 175, 55, 0.1);
+    padding: 20px;
+    border-radius: 12px;
+    border-left: 4px solid var(--dourado);
+    margin: 20px 0;
+    font-style: italic;
+    line-height: 1.5;
+}
+
+.carta-mentora p {
+    color: #f1f1f1;
+    margin-bottom: 10px;
+}
+
+/* Caixa do Cronograma (Manual) */
+.manual-mentoria {
+    margin: 25px 0;
+}
+
+.manual-mentoria h3 {
+    color: var(--dourado);
+    font-size: 1rem;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+}
+
+/* Frase de Impacto Final */
+.frase-inspiradora {
+    text-align: center;
+    padding: 15px;
+    color: var(--dourado);
+    font-weight: 600;
+    font-size: 1.1rem;
+    border-top: 1px solid #333;
+    margin-bottom: 20px;
+}

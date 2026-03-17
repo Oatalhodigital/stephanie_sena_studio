@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio Stephanie Sena | Nail Design & Academy</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <header>
+        <div class="logo">STEPHANIE SENA</div>
+        <nav>
+            <a href="#home">Início</a>
+            <a href="#trabalhos">Portfólio</a>
+            <a href="#agendamento">Agendar</a>
+            <a href="#mentoria" class="btn-mentoria-nav">MENTORIA</a>
+        </nav>
+    </header>
+
+    <section id="home" class="hero reveal">
+        <div class="hero-container">
+            <div class="hero-img">
+                <img src="perfil.jpg" alt="Stephanie Sena">
+            </div>
+            <div class="hero-text">
+                <span class="gold-text">⚜️ NAIL DESIGNER DE ALTO PADRÃO</span>
+                <h1>O alongamento perfeito em pouco tempo.</h1>
+                <p>Especialista em unhas de luxo em Belo Horizonte. Transformando o autocuidado em uma experiência exclusiva.</p>
+                <a href="#agendamento" class="btn-gold">Quero Agendar</a>
+            </div>
+        </div>
+    </section>
+
+    <section id="trabalhos" class="galeria reveal">
+        <span class="sub-title">Conheça meu trabalho</span>
+        <h2>Portfólio de Luxo</h2>
+        <div class="grid-trabalhos">
+            <div class="foto-card"><img src="unha.jpeg" alt="Trabalho 1"></div>
+            <div class="foto-card"><img src="unha1.jpeg" alt="Trabalho 2"></div>
+            <div class="foto-card"><img src="unha2.jpeg" alt="Trabalho 3"></div>
+            <div class="foto-card"><img src="WhatsApp Image 2026-03-16 at 20.39.29.jpeg" alt="Trabalho 4"></div>
+        </div>
+    </section>
+
+    <section id="agendamento" class="secao-vendas reveal">
+        <div class="vendas-container">
+            <div class="lista-precos">
+                <h2>Serviços & Valores</h2>
+                <div class="item"><span>Banho em gel</span> <strong>R$ 45,00</strong></div>
+                <div class="item"><span>Esmaltação em gel</span> <strong>R$ 35,00</strong></div>
+                <div class="item"><span>Cutilagem pé/mão</span> <strong>R$ 10,00</strong></div>
+            </div>
+
+            <div class="agenda-interativa">
+                <h3>Agende Online</h3>
+                <div class="grade-horas">
+                    <button class="hora-btn" onclick="selecionar(this)">09:00</button>
+                    <button class="hora-btn" onclick="selecionar(this)">10:30</button>
+                    <button class="hora-btn" onclick="selecionar(this)">15:00</button>
+                </div>
+                <button id="confirmar-btn" class="hidden btn-confirmar" onclick="enviarWhats()">Confirmar via WhatsApp</button>
+            </div>
+        </div>
+    </section>
+<section id="mentoria" class="mentoria-section reveal">
+    <div class="mentoria-grid">
+        <div class="mentoria-banner">
+            <img src="banner.jpeg" alt="Mentoria Stephanie Sena">
+        </div>
+        <div class="mentoria-info">
+            <span class="tag-aluna">PARA FUTURAS ESPECIALISTAS</span>
+            <h2>Master em Molde F1: Muito além de um curso.</h2>
+            
+            <div class="carta-mentora">
+                <p><strong>"Quem não se senta para aprender, jamais se levantará para ensinar."</strong></p>
+                <p>Eu já estive no seu lugar e sei que o primeiro passo é o mais importante. Aqui, não compartilhamos apenas técnica, compartilhamos experiências que transformam carreiras.</p>
+            </div>
+
+            <div class="manual-mentoria">
+                <h3>O QUE VOCÊ VAI APRENDER:</h3>
+                <ul class="check-list">
+                    <li>✨ Preparação correta do leito e química dos produtos.</li>
+                    <li>✨ Tipos, modelos e escolha ideal do Molde F1.</li>
+                    <li>✨ Controle de produto e lixamento técnico agilizado.</li>
+                    <li>✨ Manutenção, Babyboomer e acabamentos de luxo.</li>
+                    <li>✨ Suporte exclusivo para tirar todas as suas dúvidas.</li>
+                </ul>
+            </div>
+
+            <div class="frase-inspiradora">
+                <p><em>"Deus nunca nos disse que seria fácil, mas também não disse que seria impossível!"</em></p>
+            </div>
+
+            <a href="https://wa.me/5531991105308?text=Stephanie, acabei de ler seu manual e estou pronta para começar!" class="btn-black">Quero me tornar uma Especialista</a>
+        </div>
+    </div>
+</section>
+
+    <footer class="reveal">
+        <div class="thanks-area">
+            <h3>Obrigada pela visita!</h3>
+            <p>Espero ver você em breve no meu Studio ou em uma de minhas turmas.</p>
+        </div>
+        <p class="copyright">Studio Stephanie Sena | Rua Olinto magalhães, 1628, BH</p>
+    </footer>
+    <footer class="reveal">
+    <div class="thanks-area">
+        <h3>Gratidão pela confiança!</h3>
+        <p>Conhecimento é algo que jamais nos é tirado. Tenha certeza disso.</p>
+        <p>O primeiro passo é começar, e você já deu o seu estando aqui!</p>
+    </div>
+    <p class="copyright">Studio Stephanie Sena | Rua Olinto magalhães, 1628, BH</p>
+</footer>
+
+    <script>
+        // Lógica de agendamento
+        let selecionado = "";
+        function selecionar(btn) {
+            document.querySelectorAll('.hora-btn').forEach(b => b.classList.remove('ativo'));
+            btn.classList.add('ativo');
+            selecionado = btn.innerText;
+            document.getElementById('confirmar-btn').classList.remove('hidden');
+        }
+        function enviarWhats() {
+            const msg = `Olá Stephanie! Gostaria de agendar para às ${selecionado}.`;
+            window.open(`https://wa.me/5531991105308?text=${encodeURIComponent(msg)}`);
+        }
+
+        // Efeito Flutuante (Scroll Reveal)
+        function reveal() {
+            var reveals = document.querySelectorAll(".reveal");
+            for (var i = 0; i < reveals.length; i++) {
+                var windowHeight = window.innerHeight;
+                var elementTop = reveals[i].getBoundingClientRect().top;
+                if (elementTop < windowHeight - 100) {
+                    reveals[i].classList.add("active");
+                }
+            }
+        }
+        window.addEventListener("scroll", reveal);
+        reveal();
+    </script>
+</body>
+</html>
