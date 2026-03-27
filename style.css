@@ -36,6 +36,25 @@ a{color:inherit}
   font-family:'Playfair Display',serif;
   font-weight:700;
   letter-spacing:2px;
+  display:flex;
+  align-items:center;
+  gap:0;
+}
+.logo-gold{
+  color:var(--dourado);
+  font-weight:800;
+  text-shadow:0 2px 4px rgba(212,175,55,.3);
+  position:relative;
+}
+.logo-gold::after{
+  content:'';
+  position:absolute;
+  bottom:-2px;
+  left:0;
+  right:0;
+  height:1px;
+  background:linear-gradient(90deg, transparent, var(--dourado), transparent);
+  opacity:.6;
 }
 .nav a{
   text-decoration:none;
