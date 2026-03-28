@@ -8,13 +8,21 @@ import {
   query,
   where,
   getDocs,
-  serverTimestamp
+  serverTimestamp,
+  updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 const STUDIO_WHATSAPP = "5531991105308";
 const HOUR_START = 8;
 const HOUR_END = 20;
 const WEBHOOK_URL = ""; // opcional: URL do Make/Zapier para enviar notificacoes automáticas
+
+// Estados possíveis para agendamento
+const AGENDAMENTO_STATUS = {
+  PENDENTE: 'pendente',
+  CONFIRMADO: 'confirmado', 
+  CANCELADO: 'cancelado'
+};
 
 const state = {
   db: null,
@@ -203,13 +211,44 @@ function localSaveBooking(booking) {
   localStorage.setItem(key, JSON.stringify(current));
 }
 
-function buildWhatsMessage(booking) {
+function buildStudioMessage(booking) {
   return (
-    "Olá Stephanie! Novo agendamento confirmado pelo site.\n" +
-    `Nome: ${booking.nome}\n` +
-    `Celular: ${booking.celular}\n` +
-    `Data: ${formatDateBR(booking.dateISO)}\n` +
-    `Horário: ${booking.hour}`
+    "🌟 *NOVO AGENDAMENTO CONFIRMADO* 🌟\n\n" +
+    "*Cliente:* " + booking.nome + "\n" +
+    "*Celular:* " + booking.celular + "\n" +
+    "*Data:* " + formatDateBR(booking.dateISO) + "\n" +
+    "*Horário:* " + booking.hour + "\n" +
+    "*Status:* " + booking.status + "\n\n" +
+    "📅 Confirme no sistema e entre em contato se necessário."
+  );
+}
+
+function buildClientMessage(booking) {
+  return (
+    "✅ *AGENDAMENTO CONFIRMADO* ✅\n\n" +
+    "Olá, " + booking.nome + "!\n\n" +
+    "Seu agendamento no Studio Stephanie Sena foi confirmado:\n" +
+    "📅 *Data:* " + formatDateBR(booking.dateISO) + "\n" +
+    "⏰ *Horário:* " + booking.hour + "\n" +
+    "📍 *Endereço:* Rua Olinto Magalhães, 1628, BH\n\n" +
+    "⚠️ *Importante:* Chegue com 10 minutos de antecedência.\n" +
+    "Caso precise cancelar, avise com pelo menos 2 horas de antecedência.\n\n" +
+    "📞 Dúvidas? (31) 99170-5308\n" +
+    "Nos vemos em breve! 💅✨"
+  );
+}
+
+function buildReminderMessage(booking) {
+  return (
+    "⏰ *LEMBRETE DE AGENDAMENTO* ⏰\n\n" +
+    "Olá, " + booking.nome + "!\n\n" +
+    "Seu atendimento no Studio Stephanie Sena é daqui a 2 horas:\n" +
+    "📅 *Data:* " + formatDateBR(booking.dateISO) + "\n" +
+    "⏰ *Horário:* " + booking.hour + "\n\n" +
+    "Por favor, confirme sua presença:\n" +
+    "[1] ✅ Confirmar presença\n" +
+    "[2] ❌ Cancelar agendamento\n\n" +
+    "Responda com 1 ou 2 para continuarmos! 📞"
   );
 }
 
@@ -229,12 +268,27 @@ async function notifyWebhook(booking) {
   }
 }
 
+function sendWhatsAppNotification(phone, message) {
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  window.open(url, "_blank", "noopener");
+}
+
+async function sendNotifications(booking) {
+  // Envia mensagem para a dona do studio
+  const studioMessage = buildStudioMessage(booking);
+  sendWhatsAppNotification(STUDIO_WHATSAPP, studioMessage);
+  
+  // Envia mensagem de confirmação para o cliente
+  const clientMessage = buildClientMessage(booking);
+  sendWhatsAppNotification(booking.celular, clientMessage);
+}
+
 async function bookSlot(formData) {
   if (!state.firebaseReady || !state.db) {
     const localBooking = {
       id: slotId(formData.dateISO, formData.hour),
       ...formData,
-      status: "confirmado",
+      status: AGENDAMENTO_STATUS.PENDENTE,
       createdAt: new Date().toISOString()
     };
     localSaveBooking(localBooking);
@@ -256,8 +310,9 @@ async function bookSlot(formData) {
       hour,
       nome,
       celular,
-      status: "confirmado",
-      createdAt: serverTimestamp()
+      status: AGENDAMENTO_STATUS.PENDENTE,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     });
   });
 
@@ -266,8 +321,34 @@ async function bookSlot(formData) {
     dateISO,
     hour,
     nome,
-    celular
+    celular,
+    status: AGENDAMENTO_STATUS.PENDENTE
   };
+}
+
+async function updateBookingStatus(bookingId, newStatus) {
+  if (!state.firebaseReady || !state.db) {
+    // Update local storage
+    const dateISO = bookingId.split('_')[0];
+    const key = localKey(dateISO);
+    const current = JSON.parse(localStorage.getItem(key) || "{}");
+    if (current[bookingId]) {
+      current[bookingId].status = newStatus;
+      current[bookingId].updatedAt = new Date().toISOString();
+      localStorage.setItem(key, JSON.stringify(current));
+    }
+    return;
+  }
+
+  const ref = doc(state.db, "agendamentos", bookingId);
+  await updateDoc(ref, {
+    status: newStatus,
+    updatedAt: serverTimestamp()
+  });
+}
+
+async function cancelBooking(bookingId) {
+  await updateBookingStatus(bookingId, AGENDAMENTO_STATUS.CANCELADO);
 }
 
 function handleSlotsClick(event) {
@@ -292,8 +373,8 @@ function enableWhatsButton(booking) {
 
 function confirmByWhatsapp() {
   if (!state.selectedBooking) return;
-  const message = buildWhatsMessage(state.selectedBooking);
-  window.open(`https://wa.me/${STUDIO_WHATSAPP}?text=${encodeURIComponent(message)}`, "_blank", "noopener");
+  const message = buildClientMessage(state.selectedBooking);
+  window.open(`https://wa.me/${state.selectedBooking.celular}?text=${encodeURIComponent(message)}`, "_blank", "noopener");
 }
 
 async function refreshInitialSlots(dateISO) {
@@ -350,16 +431,25 @@ function initSchedulerEvents() {
       if (!hour) throw new Error("HORA_OBRIGATORIA");
 
       el.btnConfirmarSlot.disabled = true;
+      el.btnConfirmarSlot.innerHTML = '<span class="loading-spinner"></span> Agendando...';
+      
       const booking = await bookSlot({ nome, celular, dateISO, hour });
       await notifyWebhook(booking);
-
+      await sendNotifications(booking);
+      
+      el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
+      
       setInfo(
         "info-ok",
-        "Agendamento confirmado",
-        `Reserva criada para ${formatDateBR(dateISO)} às ${hour}. Clique no botão abaixo para enviar a confirmação no WhatsApp.`
+        "Agendamento confirmado!",
+        `Reserva criada para ${formatDateBR(dateISO)} às ${hour}. Enviamos a confirmação para seu WhatsApp!`
       );
       enableWhatsButton(booking);
       state.selectedSlot = "";
+      
+      // Limpa formulário
+      el.nome.value = "";
+      el.celular.value = "";
     } catch (error) {
       if (error.message === "SLOT_ALREADY_BOOKED") {
         setInfo("info-warn", "Horário indisponível", "Esse horário já foi reservado por outro cliente. Escolha outro horário.");
@@ -376,6 +466,7 @@ function initSchedulerEvents() {
       }
     } finally {
       el.btnConfirmarSlot.disabled = false;
+      el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
     }
   });
 
