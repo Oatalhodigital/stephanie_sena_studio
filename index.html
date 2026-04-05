@@ -71,7 +71,7 @@
             <div class="pill">Experiência exclusiva</div>
           </div>
           <div class="about-actions">
-            <a class="btn-black" href="https://wa.me/5531991705308?text=Ol%C3%A1%20Stephanie!%20Vim%20do%20site%20e%20quero%20tirar%20uma%20d%C3%BAvida%20sobre%20agenda%20e%20servi%C3%A7os." target="_blank" rel="noopener">
+            <a class="btn-black" href="https://api.whatsapp.com/send?phone=5531993627475&text=Ol%C3%A1%20Stephanie!%20Vim%20do%20site%20e%20quero%20tirar%20uma%20d%C3%BAvida%20sobre%20agenda%20e%20servi%C3%A7os." target="_blank" rel="noopener">
               Falar no WhatsApp
             </a>
             <a class="btn-link" href="https://www.instagram.com/stephaniesena_beauty/#" target="_blank" rel="noopener">
@@ -147,10 +147,35 @@
       <div class="container agendamento-grid">
         <div class="agendamento-card servicos-card">
           <h2>Serviços & Valores</h2>
-          <div class="item"><span>Banho em gel</span> <strong>R$ 45,00</strong></div>
-          <div class="item"><span>Esmaltação em gel</span> <strong>R$ 35,00</strong></div>
-          <div class="item"><span>Cutilagem pé/mão</span> <strong>R$ 10,00</strong></div>
-          <p class="tiny muted servicos-note">Valores de referência. Para serviços especiais, consulte disponibilidade e valor final no WhatsApp.</p>
+          <div class="catalogo-container">
+            <div class="catalogo-grid">
+              <div class="catalogo-item">
+                <img src="Catalgo de valores/1.png" alt="Serviço 1" loading="lazy">
+              </div>
+              <div class="catalogo-item">
+                <img src="Catalgo de valores/2.png" alt="Serviço 2" loading="lazy">
+              </div>
+              <div class="catalogo-item">
+                <img src="Catalgo de valores/3.png" alt="Serviço 3" loading="lazy">
+              </div>
+              <div class="catalogo-item">
+                <img src="Catalgo de valores/4.png" alt="Serviço 4" loading="lazy">
+              </div>
+              <div class="catalogo-item">
+                <img src="Catalgo de valores/5.png" alt="Serviço 5" loading="lazy">
+              </div>
+              <div class="catalogo-item">
+                <img src="Catalgo de valores/6.png" alt="Serviço 6" loading="lazy">
+              </div>
+              <div class="catalogo-item">
+                <img src="Catalgo de valores/7.png" alt="Serviço 7" loading="lazy">
+              </div>
+              <div class="catalogo-item">
+                <img src="Catalgo de valores/8.png" alt="Serviço 8" loading="lazy">
+              </div>
+            </div>
+            <p class="tiny muted servicos-note">Conheça nossos serviços e valores. Para serviços especiais, consulte disponibilidade e valor final no WhatsApp.</p>
+          </div>
         </div>
 
         <div class="agendamento-card">
@@ -165,9 +190,22 @@
               <span>Nome completo</span>
               <input id="nome" name="nome" type="text" autocomplete="name" placeholder="Ex.: Maria Silva" required />
             </label>
-            <label>
+            <label for="celular">
               <span>Celular (WhatsApp)</span>
-              <input id="celular" name="celular" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ex.: (31) 9xxxx-xxxx" required />
+              <input id="celular" name="celular" type="tel" placeholder="(31) 9xxxx-xxxx" required />
+            </label>
+
+            <label for="servico">
+              <span>Serviço desejado</span>
+              <select id="servico" name="servico" required>
+                <option value="">Selecione um serviço</option>
+                <option value="Blindagem em Gel">Blindagem em Gel - R$ 50,00</option>
+                <option value="Banho de Gel">Banho de Gel - R$ 100,00</option>
+                <option value="Esmaltação em Gel">Esmaltação em Gel - R$ 35,00</option>
+                <option value="Alongamento">Alongamento - R$ 140,00</option>
+                <option value="Encapsulada">Encapsulada - Valores Adicionais</option>
+                <option value="Babyboomer">Babyboomer - Valores Adicionais</option>
+              </select>
             </label>
 
             <label>
@@ -176,12 +214,13 @@
             </label>
 
             <div>
-              <span class="slot-label">Horários disponíveis (1 em 1 hora)</span>
+              <span class="slot-label">Horários disponíveis</span>
               <div id="slotsGrid" class="slots-grid" aria-live="polite"></div>
             </div>
 
             <button id="btnConfirmarSlot" type="submit" class="btn-gold btn-full">Confirmar agendamento</button>
             <button id="btnConfirmarWhats" type="button" class="btn-whats btn-full hidden">Enviar confirmação no WhatsApp</button>
+            <button id="btnCancelarAgendamento" type="button" class="btn-cancel btn-full hidden">Cancelar agendamento</button>
           </form>
 
           <div id="agendamentoInfo" class="info-box hidden" role="status" aria-live="polite">
@@ -284,7 +323,7 @@
 
       <div class="footer-col">
         <div class="footer-title">Contato</div>
-        <a href="https://wa.me/5531991705308" target="_blank" rel="noopener">WhatsApp: (31) 99170-5308</a>
+        <a href="https://api.whatsapp.com/send?phone=5531993627475" target="_blank" rel="noopener">WhatsApp: (31) 99362-7475</a>
         <a href="https://www.instagram.com/stephaniesena_beauty/#" target="_blank" rel="noopener">Instagram: @stephaniesena_beauty</a>
         <div class="muted footer-line">Endereço: Rua Olinto Magalhães, 1628, BH</div>
       </div>
@@ -301,6 +340,6 @@
     </div>
   </footer>
 
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=2"></script>
 </body>
 </html>

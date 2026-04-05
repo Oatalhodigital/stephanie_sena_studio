@@ -108,7 +108,7 @@ const WEBHOOK_URL = "https://seu-webhook-url.com/whatsapp";
 
 ### Variáveis de Ambiente
 ```bash
-firebase functions:config:set whatsapp.number="5531991105308"
+firebase functions:config:set whatsapp.number="5531991705308"
 firebase functions:config:set whatsapp.webhook="https://..."
 ```
 

@@ -8,11 +8,12 @@ import {
   query,
   where,
   getDocs,
+  getDoc,
   serverTimestamp,
   updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-const STUDIO_WHATSAPP = "5531991105308";
+const STUDIO_WHATSAPP = "5531993627475";
 const HOUR_START = 8;
 const HOUR_END = 20;
 const WEBHOOK_URL = ""; // opcional: URL do Make/Zapier para enviar notificacoes automáticas
@@ -38,10 +39,12 @@ const el = {
   leadForm: document.getElementById("leadForm"),
   nome: document.getElementById("nome"),
   celular: document.getElementById("celular"),
+  servico: document.getElementById("servico"),
   dataAgendamento: document.getElementById("dataAgendamento"),
   slotsGrid: document.getElementById("slotsGrid"),
   btnConfirmarSlot: document.getElementById("btnConfirmarSlot"),
   btnConfirmarWhats: document.getElementById("btnConfirmarWhats"),
+  btnCancelarAgendamento: document.getElementById("btnCancelarAgendamento"),
   agendamentoInfo: document.getElementById("agendamentoInfo"),
   agendamentoInfoTitulo: document.getElementById("agendamentoInfoTitulo"),
   agendamentoInfoTexto: document.getElementById("agendamentoInfoTexto"),
@@ -59,7 +62,15 @@ function reveal() {
 }
 
 function normalizePhone(v) {
-  return (v || "").replace(/\D+/g, "");
+  // Remove todos os caracteres não numéricos
+  let phone = (v || "").replace(/\D+/g, "");
+  
+  // Verifica se é o número antigo e substitui
+  if (phone === "5531991705308") {
+    phone = "5531993627475";
+  }
+  
+  return phone;
 }
 
 function todayStr() {
@@ -76,11 +87,22 @@ function slotId(dateISO, hour) {
   return `${dateISO}_${hour}`;
 }
 
-function createHourSlots() {
+function createHourSlots(selectedDate) {
   const list = [];
-  for (let h = HOUR_START; h <= HOUR_END; h += 1) {
-    list.push(`${String(h).padStart(2, "0")}:00`);
+  const date = new Date(selectedDate);
+  const dayOfWeek = date.getDay(); // 0 = Domingo, 6 = Sábado
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  
+  // Define horários limite: 17:00 dias úteis, 20:00 fins de semana
+  const lastHour = isWeekend ? 20 : 17;
+  
+  // Gera horários de 1h30 em 1h30
+  for (let h = HOUR_START; h <= lastHour; h += 1.5) {
+    const hour = Math.floor(h);
+    const minutes = (h - hour) * 60;
+    list.push(`${String(hour).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`);
   }
+  
   return list;
 }
 
@@ -130,7 +152,7 @@ function renderSlots(bookedHourList) {
   if (!el.slotsGrid) return;
   const selected = state.selectedSlot;
   const booked = new Set(bookedHourList || []);
-  const slots = createHourSlots();
+  const slots = createHourSlots(state.selectedDate);
 
   el.slotsGrid.innerHTML = "";
   slots.forEach((hour) => {
@@ -213,8 +235,9 @@ function localSaveBooking(booking) {
 
 function buildStudioMessage(booking) {
   return (
-    "🌟 *NOVO AGENDAMENTO CONFIRMADO* 🌟\n\n" +
-    "*Cliente:* " + booking.nome + "\n" +
+    "🔔 *NOVO AGENDAMENTO CONFIRMADO* 🔔\n\n" +
+    "Cliente: " + booking.nome + "\n" +
+    "💅 *Serviço:* " + booking.servico + "\n" +
     "*Celular:* " + booking.celular + "\n" +
     "*Data:* " + formatDateBR(booking.dateISO) + "\n" +
     "*Horário:* " + booking.hour + "\n" +
@@ -225,16 +248,16 @@ function buildStudioMessage(booking) {
 
 function buildClientMessage(booking) {
   return (
-    "✅ *AGENDAMENTO CONFIRMADO* ✅\n\n" +
-    "Olá, " + booking.nome + "!\n\n" +
-    "Seu agendamento no Studio Stephanie Sena foi confirmado:\n" +
-    "📅 *Data:* " + formatDateBR(booking.dateISO) + "\n" +
+    "✨Seu horário está confirmado!✨\n\n" +
+    "Agradeço imensamente pela confiança em meu trabalho.\n" +
+    "Gentilmente, peço sua compreensão quanto à tolerância de até 10 minutos para o início do atendimento. Caso haja atraso superior a esse período, infelizmente não será possível realizar a decoração desejada.\n" +
+    "É obrigatório que me envie com antecedência a decoração ou estilo escolhido. Caso não seja enviado, o procedimento será realizado sem decoração.\n" +
+    "Será um prazer recebê-la 💖.\n\n" +
+    "� *Serviço:* " + booking.servico + "\n\n" +
+    "� *Data:* " + formatDateBR(booking.dateISO) + "\n" +
     "⏰ *Horário:* " + booking.hour + "\n" +
     "📍 *Endereço:* Rua Olinto Magalhães, 1628, BH\n\n" +
-    "⚠️ *Importante:* Chegue com 10 minutos de antecedência.\n" +
-    "Caso precise cancelar, avise com pelo menos 2 horas de antecedência.\n\n" +
-    "📞 Dúvidas? (31) 99170-5308\n" +
-    "Nos vemos em breve! 💅✨"
+    "📞 Dúvidas? (31) 99362-7475"
   );
 }
 
@@ -269,7 +292,7 @@ async function notifyWebhook(booking) {
 }
 
 function sendWhatsAppNotification(phone, message) {
-  const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  const url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
   window.open(url, "_blank", "noopener");
 }
 
@@ -295,26 +318,23 @@ async function bookSlot(formData) {
     return localBooking;
   }
 
-  const { nome, celular, dateISO, hour } = formData;
+  const { nome, celular, dateISO, hour, servico } = formData;
   const id = slotId(dateISO, hour);
-  const ref = doc(state.db, "agendamentos", id);
-
-  await runTransaction(state.db, async (tx) => {
-    const snap = await tx.get(ref);
-    if (snap.exists()) {
-      throw new Error("SLOT_ALREADY_BOOKED");
-    }
-    tx.set(ref, {
-      id,
-      dateISO,
-      hour,
-      nome,
-      celular,
-      status: AGENDAMENTO_STATUS.PENDENTE,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+  const ref = doc(state.db, "agendamentos", slotId(dateISO, hour));
+    await runTransaction(state.db, async (transaction) => {
+      const docSnap = await transaction.get(ref);
+      if (docSnap.exists()) throw new Error("SLOT_ALREADY_BOOKED");
+      transaction.set(ref, {
+        nome,
+        celular,
+        servico,
+        dateISO,
+        hour,
+        status: AGENDAMENTO_STATUS.PENDENTE,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
     });
-  });
 
   return {
     id,
@@ -322,6 +342,7 @@ async function bookSlot(formData) {
     hour,
     nome,
     celular,
+    servico,
     status: AGENDAMENTO_STATUS.PENDENTE
   };
 }
@@ -347,6 +368,50 @@ async function updateBookingStatus(bookingId, newStatus) {
   });
 }
 
+async function processWhatsAppResponse(phone, message, bookingId) {
+  try {
+    // Procura o agendamento pelo ID
+    const bookingDoc = await doc(collection(state.db, "agendamentos", bookingId));
+    const bookingSnap = await getDoc(bookingDoc);
+    
+    if (!bookingSnap.exists()) {
+      console.log('Agendamento não encontrado:', bookingId);
+      return;
+    }
+    
+    const booking = bookingSnap.data();
+    
+    // Processa a resposta
+    if (message.trim().toLowerCase().includes('cancelar') || message.trim() === '2') {
+      // Cancelar agendamento
+      await updateBookingStatus(bookingId, AGENDAMENTO_STATUS.CANCELADO);
+      
+      // Envia confirmação de cancelamento
+      const cancelMessage = `❌ *AGENDAMENTO CANCELADO* ❌\n\n` +
+        `Olá, ${booking.nome}!\n\n` +
+        `Seu agendamento foi cancelado conforme solicitado.\n\n` +
+        `Se desejar remarcar, acesse nosso site novamente.\n` +
+        `Obrigada pelo aviso! 📞`;
+      
+      sendWhatsAppNotification(phone, cancelMessage);
+      
+      // Notifica a dona do studio
+      const studioNotification = `🔔 *CANCELAMENTO RECEBIDO*\n\n` +
+        `Cliente: ${booking.nome}\n` +
+        `Celular: ${booking.celular}\n` +
+        `Data: ${formatDateBR(booking.dateISO)}\n` +
+        `Horário: ${booking.hour}\n\n` +
+        `Horário liberado para novos agendamentos.`;
+      
+      sendWhatsAppNotification(STUDIO_WHATSAPP, studioNotification);
+      
+      console.log('Agendamento cancelado:', bookingId);
+    }
+  } catch (error) {
+    console.error('Erro ao processar resposta:', error);
+  }
+}
+
 async function cancelBooking(bookingId) {
   await updateBookingStatus(bookingId, AGENDAMENTO_STATUS.CANCELADO);
 }
@@ -369,12 +434,48 @@ function enableWhatsButton(booking) {
   state.selectedBooking = booking;
   if (!el.btnConfirmarWhats) return;
   el.btnConfirmarWhats.classList.remove("hidden");
+  el.btnCancelarAgendamento.classList.remove("hidden");
+}
+
+function disableButtons() {
+  if (el.btnConfirmarWhats) el.btnConfirmarWhats.classList.add("hidden");
+  if (el.btnCancelarAgendamento) el.btnCancelarAgendamento.classList.add("hidden");
+}
+
+async function cancelCurrentBooking() {
+  if (!state.selectedBooking) return;
+  
+  try {
+    await cancelBooking(state.selectedBooking.id);
+    
+    setInfo(
+      "info-warn",
+      "Agendamento cancelado",
+      `Horário ${state.selectedBooking.hour} liberado para novos agendamentos.`
+    );
+    
+    // Limpa o estado
+    state.selectedBooking = null;
+    disableButtons();
+    
+    // Atualiza os horários disponíveis
+    if (state.selectedDate) {
+      await refreshInitialSlots(state.selectedDate);
+    }
+    
+  } catch (error) {
+    setInfo(
+      "info-error",
+      "Erro ao cancelar",
+      "Não foi possível cancelar o agendamento. Tente novamente."
+    );
+  }
 }
 
 function confirmByWhatsapp() {
   if (!state.selectedBooking) return;
   const message = buildClientMessage(state.selectedBooking);
-  window.open(`https://wa.me/${state.selectedBooking.celular}?text=${encodeURIComponent(message)}`, "_blank", "noopener");
+  window.open(`https://api.whatsapp.com/send?phone=${STUDIO_WHATSAPP}&text=${encodeURIComponent(message)}`, "_blank", "noopener");
 }
 
 async function refreshInitialSlots(dateISO) {
@@ -421,6 +522,7 @@ function initSchedulerEvents() {
     const nome = (el.nome.value || "").trim();
     const celularRaw = (el.celular.value || "").trim();
     const celular = normalizePhone(celularRaw);
+    const servico = (el.servico.value || "").trim();
     const dateISO = el.dataAgendamento.value;
     const hour = state.selectedSlot;
 
@@ -428,28 +530,42 @@ function initSchedulerEvents() {
       if (!nome || nome.length < 4) throw new Error("NOME_INVALIDO");
       if (!celular || celular.length < 10) throw new Error("CELULAR_INVALIDO");
       await ensureNoPastDate(dateISO);
+      if (!servico) throw new Error("SERVICO_OBRIGATORIO");
       if (!hour) throw new Error("HORA_OBRIGATORIA");
 
       el.btnConfirmarSlot.disabled = true;
       el.btnConfirmarSlot.innerHTML = '<span class="loading-spinner"></span> Agendando...';
       
-      const booking = await bookSlot({ nome, celular, dateISO, hour });
-      await notifyWebhook(booking);
-      await sendNotifications(booking);
-      
-      el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
-      
-      setInfo(
-        "info-ok",
-        "Agendamento confirmado!",
-        `Reserva criada para ${formatDateBR(dateISO)} às ${hour}. Enviamos a confirmação para seu WhatsApp!`
-      );
-      enableWhatsButton(booking);
-      state.selectedSlot = "";
-      
-      // Limpa formulário
-      el.nome.value = "";
-      el.celular.value = "";
+      try {
+        const booking = await bookSlot({ nome, celular, servico, dateISO, hour });
+        
+        // Aguarda confirmação do salvamento antes de redirecionar para WhatsApp
+        await notifyWebhook(booking);
+        
+        el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
+        
+        // Mensagem de sucesso
+        setInfo(
+          "info-ok",
+          "Agendamento confirmado!",
+          `Reserva criada para ${formatDateBR(dateISO)} às ${hour}. Redirecionando para WhatsApp...`
+        );
+        
+        // Limpa formulário
+        el.nome.value = "";
+        el.celular.value = "";
+        el.servico.value = "";
+        
+        // Envia notificações após salvar com sucesso
+        await sendNotifications(booking);
+        
+        // Habilita botão de WhatsApp manual
+        enableWhatsButton(booking);
+        state.selectedSlot = "";
+        
+      } catch (error) {
+        throw error; // Propaga erro para o catch externo
+      }
     } catch (error) {
       if (error.message === "SLOT_ALREADY_BOOKED") {
         setInfo("info-warn", "Horário indisponível", "Esse horário já foi reservado por outro cliente. Escolha outro horário.");
@@ -459,6 +575,8 @@ function initSchedulerEvents() {
         setInfo("info-error", "Celular inválido", "Digite um número de celular válido com DDD.");
       } else if (error.message === "DATA_INVALIDA") {
         setInfo("info-error", "Data inválida", "Selecione uma data de hoje em diante.");
+      } else if (error.message === "SERVICO_OBRIGATORIO") {
+        setInfo("info-error", "Serviço obrigatório", "Selecione o serviço desejado para continuar.");
       } else if (error.message === "HORA_OBRIGATORIA") {
         setInfo("info-error", "Horário obrigatório", "Selecione um horário disponível.");
       } else {
@@ -473,6 +591,10 @@ function initSchedulerEvents() {
   if (el.btnConfirmarWhats) {
     el.btnConfirmarWhats.addEventListener("click", confirmByWhatsapp);
   }
+  
+  if (el.btnCancelarAgendamento) {
+    el.btnCancelarAgendamento.addEventListener("click", cancelCurrentBooking);
+  }
 }
 
 function initMentoria() {
@@ -482,7 +604,7 @@ function initMentoria() {
     const nome = (el.mentoriaNome.value || "").trim();
     const msg =
       `Olá Stephanie! Meu nome é ${nome || "—"}. Tenho interesse na mentoria e gostaria de marcar uma visita para conhecer valores e datas.`;
-    window.open(`https://wa.me/${STUDIO_WHATSAPP}?text=${encodeURIComponent(msg)}`, "_blank", "noopener");
+    window.open(`https://api.whatsapp.com/send?phone=${STUDIO_WHATSAPP}&text=${encodeURIComponent(msg)}`, "_blank", "noopener");
   });
 }
 

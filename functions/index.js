@@ -4,7 +4,7 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 
 const db = admin.firestore();
-const STUDIO_WHATSAPP = '5531991105308';
+const STUDIO_WHATSAPP = '5531991705308';
 
 // Função para enviar lembrete 2 horas antes do agendamento
 exports.sendReminderNotification = functions.pubsub

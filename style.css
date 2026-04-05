@@ -37,6 +37,33 @@ a{color:inherit}
   to{transform:rotate(360deg)}
 }
 
+/* Catálogo de Serviços */
+.catalogo-container{
+  margin-top:1rem;
+}
+.catalogo-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:1rem;
+  margin-bottom:1rem;
+}
+.catalogo-item{
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow:0 4px12px rgba(0,0,0,.08);
+  transition:transform 0.3s ease, box-shadow 0.3s ease;
+}
+.catalogo-item:hover{
+  transform:translateY(-4px);
+  box-shadow:0 8px24px rgba(0,0,0,.12);
+}
+.catalogo-item img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+
 /* Header / Nav */
 .site-header{
   display:flex;justify-content:space-between;align-items:center;
@@ -123,6 +150,13 @@ a{color:inherit}
   padding:12px 16px;
 }
 .btn-whats:hover{transform:translateY(-1px);box-shadow:0 14px 26px rgba(37,211,102,.22)}
+.btn-cancel{
+  background:#dc3545;
+  color:#fff;
+  border-radius:12px;
+  padding:12px 16px;
+}
+.btn-cancel:hover{transform:translateY(-1px);box-shadow:0 14px 26px rgba(220,53,69,.22)}
 
 /* Reveal */
 .reveal{position:relative;transform:translateY(50px);opacity:0;transition:1s all ease}
@@ -305,16 +339,25 @@ a{color:inherit}
 .lead-form{display:grid;gap:12px;margin-top:14px}
 .lead-form label{display:grid;gap:6px}
 .lead-form span{font-size:.86rem;font-weight:800;color:#111827}
-.lead-form input{
+.lead-form input,.lead-form select{
   width:100%;
+  padding:16px;
   border:1px solid #e5e7eb;
   border-radius:12px;
-  padding:12px 12px;
+  font-family:'Poppins',sans-serif;
   font-size:1rem;
-  outline:none;
-  transition:border-color .2s ease, box-shadow .2s ease;
+  background:#fff;
+  transition:border-color .3s ease,box-shadow .3s ease;
 }
-.lead-form input:focus{
+.lead-form select{
+  cursor:pointer;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23333' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 16px center;
+  padding-right:40px;
+}
+.lead-form input:focus,.lead-form select:focus{
   border-color:rgba(212,175,55,.55);
   box-shadow:0 0 0 4px rgba(212,175,55,.14);
 }

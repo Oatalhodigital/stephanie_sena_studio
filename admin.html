@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Administrativo - Studio Stephanie Sena</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet" />
+  <style>
+    .admin-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .admin-header {
+      background: var(--dourado);
+      color: var(--preto);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .calendar-view {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-bottom: 30px;
+    }
+    .booking-card {
+      background: var(--cinza);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-left: 4px solid var(--dourado);
+    }
+    .booking-card.cancelado {
+      border-left-color: #dc3545;
+      opacity: 0.7;
+    }
+    .booking-card.confirmado {
+      border-left-color: #28a745;
+    }
+    .filter-buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .filter-btn {
+      padding: 8px 16px;
+      border: 1px solid var(--dourado);
+      background: white;
+      color: var(--dourado);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .filter-btn.active {
+      background: var(--dourado);
+      color: white;
+    }
+    .booking-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .info-item {
+      font-size: 14px;
+    }
+    .info-label {
+      font-weight: 600;
+      color: var(--preto);
+    }
+    .info-value {
+      color: #6b7280;
+    }
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status-pendente {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .status-confirmado {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status-cancelado {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .login-section {
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      max-width: 400px;
+      margin: 100px auto;
+    }
+    .login-input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-family: 'Poppins', sans-serif;
+    }
+    .login-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--dourado);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="loginSection" class="login-section">
+    <h2 style="text-align: center; margin-bottom: 30px;">🔐 Acesso Administrativo</h2>
+    <form id="loginForm">
+      <input type="password" id="adminPassword" class="login-input" placeholder="Senha de acesso" required>
+      <button type="submit" class="login-btn">Entrar</button>
+    </form>
+  </div>
+
+  <div id="adminPanel" class="admin-container hidden">
+    <header class="admin-header">
+      <h1>📅 Painel Administrativo - Studio Stephanie Sena</h1>
+      <p>Gerencie todos os agendamentos em um só lugar</p>
+    </header>
+
+    <div class="calendar-view">
+      <h2>📋 Filtros</h2>
+      <div class="filter-buttons">
+        <button class="filter-btn active" data-filter="todos">Todos</button>
+        <button class="filter-btn" data-filter="hoje">Hoje</button>
+        <button class="filter-btn" data-filter="semana">Esta Semana</button>
+        <button class="filter-btn" data-filter="pendente">Pendentes</button>
+        <button class="filter-btn" data-filter="confirmado">Confirmados</button>
+        <button class="filter-btn" data-filter="cancelado">Cancelados</button>
+      </div>
+
+      <div id="bookingsList">
+        <p style="text-align: center; color: #6b7280;">Carregando agendamentos...</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="admin.js"></script>
+</body>
+</html>
