@@ -12,14 +12,14 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-// Configuração Firebase (mesma do app.js)
+// Configuração Firebase (mesma do firebase-config.js)
 const firebaseConfig = {
-  apiKey: "AIzaSyCk2Gv8kQqX3xQKm4T9wJQ0Z7R1m2n3o",
+  apiKey: "AIzaSyA_6I9MmZ_B6hb0QwqewYyciDIpdAAK9D0",
   authDomain: "studio-stephanie-sena.firebaseapp.com",
   projectId: "studio-stephanie-sena",
-  storageBucket: "studio-stephanie-sena.appspot.com",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abcdef123456789012345678"
+  storageBucket: "studio-stephanie-sena.firebasestorage.app",
+  messagingSenderId: "697438120393",
+  appId: "1:697438120393:web:b586bef9902f767684e018"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -65,6 +65,9 @@ loginForm.addEventListener('submit', async (e) => {
     loginSection.classList.add('hidden');
     adminPanel.classList.remove('hidden');
     await loadBookings();
+    
+    // Log de acesso bem-sucedido
+    console.log('Login administrativo realizado com sucesso');
   } else {
     alert('Senha incorreta!');
     adminPassword.value = '';

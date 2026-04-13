@@ -6,16 +6,15 @@ service cloud.firestore {
       // Permitir leitura pública (para ver horários disponíveis)
       allow read: if true;
       
-      // Permitir criação se o documento não existir
+      // Permitir criação se o documento não existe
       allow create: if !exists(/databases/$(database)/documents/agendamentos/$(agendamentoId));
       
-      // Permitir atualização apenas do status e campos relacionados
+      // Permitir atualização apenas do status e updatedAt
       allow update: if 
-        request.auth != null // Usuário autenticado
-        && request.resource.data.keys().hasAll(['status', 'updatedAt'])
-        && request.resource.data.keys().size() == 2
-        && (request.resource.data.status in ['pendente', 'confirmado', 'cancelado'])
-        && request.resource.data.updatedAt == request.time;
+        request.resource.data.keys().hasAll(['status', 'updatedAt']) &&
+        request.resource.data.keys().size() == 2 &&
+        request.resource.data.status in ['pendente', 'confirmado', 'cancelado'] &&
+        request.resource.data.updatedAt == request.time;
       
       // Permitir delete apenas para limpeza automática
       allow delete: if false;
