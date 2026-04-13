@@ -10,9 +10,12 @@ service cloud.firestore {
       allow create: if !exists(/databases/$(database)/documents/agendamentos/$(agendamentoId));
       
       // Permitir atualização apenas do status e campos relacionados
-      allow update: if request.resource.data.keys().hasAll(['status', 'updatedAt'])
+      allow update: if 
+        request.auth != null // Usuário autenticado
+        && request.resource.data.keys().hasAll(['status', 'updatedAt'])
         && request.resource.data.keys().size() == 2
-        && (request.resource.data.status in ['pendente', 'confirmado', 'cancelado']);
+        && (request.resource.data.status in ['pendente', 'confirmado', 'cancelado'])
+        && request.resource.data.updatedAt == request.time;
       
       // Permitir delete apenas para limpeza automática
       allow delete: if false;

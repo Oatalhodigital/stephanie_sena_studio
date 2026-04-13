@@ -106,6 +106,22 @@ function createHourSlots(selectedDate) {
   return list;
 }
 
+// Função de rastreamento Google Analytics
+function trackEvent(eventName, parameters = {}) {
+  if (typeof gtag !== 'undefined') {
+    gtag('event', eventName, parameters);
+  }
+}
+
+// Função específica para clique no botão de agendamento
+function trackAgendamentoClick() {
+  trackEvent('clique_agendamento_whatsapp', {
+    event_category: 'engagement',
+    event_label: 'botao_confirmar_agendamento',
+    value: 1
+  });
+}
+
 function setInfo(type, title, text) {
   if (!el.agendamentoInfo) return;
   el.agendamentoInfo.classList.remove("hidden", "info-ok", "info-warn", "info-error");
@@ -116,8 +132,16 @@ function setInfo(type, title, text) {
 
 async function getFirebaseConfig() {
   try {
-    const mod = await import("./firebase-config.js");
-    if (mod && mod.firebaseConfig) return mod.firebaseConfig;
+    const firebaseConfig = {
+      apiKey: "AIzaSyA_6I9MmZ_B6hb0QwqewYyciDIpdAAK9D0",
+      authDomain: "studio-stephanie-sena.firebaseapp.com",
+      projectId: "studio-stephanie-sena",
+      storageBucket: "studio-stephanie-sena.firebasestorage.app",
+      messagingSenderId: "697438120393",
+      appId: "1:697438120393:web:b586bef9902f767684e018",
+      measurementId: "G-T2XMTXZ81M"
+    };
+    return firebaseConfig;
   } catch (error) {
     // sem config local
   }
@@ -474,6 +498,10 @@ async function cancelCurrentBooking() {
 
 function confirmByWhatsapp() {
   if (!state.selectedBooking) return;
+  
+  // Rastreia clique no botão de agendamento
+  trackAgendamentoClick();
+  
   const message = buildClientMessage(state.selectedBooking);
   window.open(`https://api.whatsapp.com/send?phone=${STUDIO_WHATSAPP}&text=${encodeURIComponent(message)}`, "_blank", "noopener");
 }
@@ -538,6 +566,13 @@ function initSchedulerEvents() {
       
       try {
         const booking = await bookSlot({ nome, celular, servico, dateISO, hour });
+        
+        // Rastreia evento de agendamento bem-sucedido
+        trackEvent('agendamento_concluido', {
+          event_category: 'conversion',
+          event_label: 'formulario_agendamento',
+          value: 1
+        });
         
         // Aguarda confirmação do salvamento antes de redirecionar para WhatsApp
         await notifyWebhook(booking);

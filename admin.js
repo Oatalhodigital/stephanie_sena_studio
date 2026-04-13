@@ -5,6 +5,7 @@ import {
   query,
   where,
   getDocs,
+  getDoc,
   orderBy,
   doc,
   updateDoc,
@@ -166,17 +167,43 @@ function renderBookings(bookings) {
 // Atualizar status do agendamento
 window.updateBookingStatus = async function(bookingId, newStatus) {
   try {
+    // Validação do documento
+    if (!bookingId || bookingId.trim() === '') {
+      console.error('ID do agendamento inválido:', bookingId);
+      return;
+    }
+    
     const ref = doc(db, "agendamentos", bookingId);
+    
+    // Verifica se o documento existe antes de atualizar
+    const docSnap = await getDoc(ref);
+    if (!docSnap.exists()) {
+      console.error('Agendamento não encontrado:', bookingId);
+      alert('Agendamento não encontrado no sistema.');
+      return;
+    }
+    
     await updateDoc(ref, {
       status: newStatus,
       updatedAt: serverTimestamp()
     });
     
-    await loadBookings(); // Recarrega a lista
-    alert(`Agendamento ${newStatus} com sucesso!`);
+    // Remove o alert e apenas recarrega a lista
+    await loadBookings(); // Recarrega a lista automaticamente
+    
+    console.log(`Agendamento ${bookingId} atualizado para ${newStatus}`);
   } catch (error) {
     console.error('Erro ao atualizar status:', error);
-    alert('Erro ao atualizar status do agendamento');
+    console.error('Detalhes do erro:', error.code, error.message);
+    
+    // Mensagem de erro mais específica
+    if (error.code === 'permission-denied') {
+      alert('Erro: Sem permissão para atualizar este agendamento.');
+    } else if (error.code === 'not-found') {
+      alert('Erro: Agendamento não encontrado.');
+    } else {
+      alert(`Erro ao atualizar status: ${error.message || 'Erro desconhecido'}`);
+    }
   }
 };
 
