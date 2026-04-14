@@ -510,22 +510,25 @@ function openPaymentModal(serviceName) {
     return;
   }
   
-  const payment = PAYMENT_CONFIG.calculateReservation(serviceName);
+  const payment = PAYMENT_CONFIG.calculateSignal(serviceName);
   
   // Atualizar estado de pagamento
   state.payment = {
     method: null,
     service: serviceName,
-    amount: payment.servicePrice,
-    reservationAmount: payment.reservationAmount,
+    signalAmount: payment.signalAmount,
     remainingAmount: payment.remainingAmount
   };
   
   // Preencher informações no modal
   document.getElementById('paymentService').textContent = serviceName;
   document.getElementById('paymentTotal').textContent = PAYMENT_CONFIG.formatBRL(payment.servicePrice);
-  document.getElementById('paymentReservation').textContent = PAYMENT_CONFIG.formatBRL(payment.reservationAmount);
+  document.getElementById('paymentSignal').textContent = PAYMENT_CONFIG.formatBRL(payment.signalAmount);
   document.getElementById('paymentRemaining').textContent = PAYMENT_CONFIG.formatBRL(payment.remainingAmount);
+  
+  // Usar QR Code personalizado
+  const qrCodePath = PAYMENT_CONFIG.getQRCodePath(payment.signalAmount);
+  document.getElementById('pixQRCode').src = qrCodePath;
   
   // Mostrar modal
   document.getElementById('paymentModal').classList.add('active');
@@ -581,16 +584,16 @@ async function confirmPayment() {
   }
   
   try {
-    // Criar agendamento com status "aguardando_pagamento"
+    // Criar agendamento com status "pendente" (sem aguardando pagamento)
     const booking = await bookSlot({
       nome: el.nome.value,
       celular: el.celular.value,
       servico: state.payment.service,
       dateISO: state.selectedDate,
       hour: state.selectedSlot,
-      status: 'aguardando_pagamento',
+      status: 'pendente',
       paymentMethod: state.payment.method,
-      reservationAmount: state.payment.reservationAmount,
+      signalAmount: state.payment.signalAmount,
       remainingAmount: state.payment.remainingAmount
     });
     
@@ -600,9 +603,13 @@ async function confirmPayment() {
     // Mostrar mensagem de sucesso
     setInfo(
       "info-ok",
-      "Pagamento em processamento!",
-      `Sua reserva de ${PAYMENT_CONFIG.formatBRL(state.payment.reservationAmount)} foi registrada. Você receberá a confirmação via WhatsApp.`
+      "Agendamento confirmado!",
+      `Seu agendamento foi realizado com sucesso! Sinal de ${PAYMENT_CONFIG.formatBRL(state.payment.signalAmount)} será pago.`
     );
+    
+    // Enviar notificações
+    await sendNotifications(booking);
+    enableWhatsButton(booking);
     
     // Limpar formulário
     el.leadForm.reset();
@@ -649,8 +656,8 @@ async function refreshInitialSlots(dateISO) {
   const booked = [];
   snapshot.forEach((d) => {
     const row = d.data();
-    // Ignorar agendamentos cancelados e em espera de pagamento
-    if (row?.hour && row.status !== 'cancelado' && row.status !== 'aguardando_pagamento') {
+    // Ignorar apenas agendamentos cancelados
+    if (row?.hour && row.status !== 'cancelado') {
       booked.push(row.hour);
     }
   });

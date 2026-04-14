@@ -15,7 +15,7 @@ const PAYMENT_CONFIG = {
   
   // Configurações de pagamento
   reservation: {
-    percentage: 0.30, // 30% de taxa de reserva
+    percentage: 0.30, // 30% de sinal
     timeoutMinutes: 15,  // 15 minutos para pagamento
     
     // Configurações Pix
@@ -29,17 +29,17 @@ const PAYMENT_CONFIG = {
     paymentMethods: ['pix', 'cartao']
   },
   
-  // Calcular valor da reserva
-  calculateReservation(serviceName) {
+  // Calcular valor do sinal
+  calculateSignal(serviceName) {
     const servicePrice = this.services[serviceName] || 0;
-    const reservationAmount = servicePrice * this.percentage;
-    const remainingAmount = servicePrice - reservationAmount;
+    const signalAmount = servicePrice * this.reservation.percentage;
+    const remainingAmount = servicePrice - signalAmount;
     
     return {
       servicePrice,
-      reservationAmount,
+      signalAmount,
       remainingAmount,
-      percentage: this.percentage * 100
+      percentage: this.reservation.percentage * 100
     };
   },
   
@@ -49,6 +49,12 @@ const PAYMENT_CONFIG = {
       style: 'currency',
       currency: 'BRL'
     }).format(value);
+  },
+  
+  // Usar QR Code personalizado
+  getQRCodePath(amount) {
+    // Retorna o caminho para o QR Code personalizado
+    return 'QR Code/qr-code-pix.png';
   }
 };
 
