@@ -30,6 +30,17 @@ document.addEventListener('DOMContentLoaded', function() {
   alert('DOM carregado!');
   console.log('DOM carregado');
   
+  // Listener para receber confirmação de pagamento da janela popup
+  window.addEventListener('message', function(event) {
+    if (event.data.type === 'payment_confirmed') {
+      console.log('Pagamento confirmado:', event.data);
+      alert('Pagamento confirmado! Processando agendamento...');
+      
+      // Processar o agendamento
+      processConfirmedPayment(event.data);
+    }
+  });
+  
   // Testar se o modal existe
   const modal = document.getElementById('paymentModal');
   if (modal) {
@@ -40,6 +51,50 @@ document.addEventListener('DOMContentLoaded', function() {
     alert('ERRO: Modal NÃO encontrado no carregamento!');
   }
 });
+
+// Função para processar pagamento confirmado
+async function processConfirmedPayment(paymentData) {
+  try {
+    // Criar agendamento com status "pendente"
+    const booking = await bookSlot({
+      nome: el.nome.value,
+      celular: el.celular.value,
+      servico: paymentData.service,
+      dateISO: state.selectedDate,
+      hour: state.selectedSlot,
+      status: 'pendente',
+      paymentMethod: 'pix',
+      signalAmount: paymentData.signal,
+      remainingAmount: paymentData.remaining
+    });
+    
+    // Mostrar mensagem de sucesso
+    setInfo(
+      "info-ok",
+      "Agendamento confirmado!",
+      `Seu agendamento foi realizado com sucesso! Sinal de ${PAYMENT_CONFIG.formatBRL(paymentData.signal)} pago.`
+    );
+    
+    // Enviar notificações
+    await sendNotifications(booking);
+    enableWhatsButton(booking);
+    
+    // Limpar formulário
+    el.leadForm.reset();
+    state.selectedSlot = null;
+    
+    // Recarregar horários disponíveis
+    await refreshInitialSlots(state.selectedDate);
+    
+  } catch (error) {
+    console.error('Erro ao processar pagamento confirmado:', error);
+    setInfo(
+      "info-error",
+      "Erro no processamento",
+      "Não foi possível confirmar seu agendamento. Tente novamente."
+    );
+  }
+}
 
 const state = {
   db: null,
@@ -520,9 +575,9 @@ async function cancelCurrentBooking() {
 }
 
 // Funções de Pagamento
-function openPaymentModal(serviceName) {
-  alert('openPaymentModal chamada com: ' + serviceName);
-  console.log('openPaymentModal chamada com:', serviceName);
+function openPaymentPage(serviceName) {
+  alert('Redirecionando para página de pagamento...');
+  console.log('Abrindo página de pagamento para:', serviceName);
   
   if (!window.PAYMENT_CONFIG) {
     console.error('Configuração de pagamento não encontrada');
@@ -530,45 +585,37 @@ function openPaymentModal(serviceName) {
     return;
   }
   
-  console.log('PAYMENT_CONFIG encontrado:', window.PAYMENT_CONFIG);
-  
   const payment = PAYMENT_CONFIG.calculateSignal(serviceName);
   console.log('Cálculo do pagamento:', payment);
   
-  // Atualizar estado de pagamento
+  // Criar URL da página de pagamento com parâmetros
+  const params = new URLSearchParams({
+    service: serviceName,
+    total: payment.servicePrice.toFixed(2),
+    signal: payment.signalAmount.toFixed(2),
+    remaining: payment.remainingAmount.toFixed(2),
+    pixKey: '60.605.653 STEPHANIE SENA',
+    pixPayload: '00020126360014BR.GOV.BCB.PIX0114606056530001265204000053039865802BR592560.605.653 STEPHANIE SENA6009SAO PAULO62140510j02GXuQh5F630460D4'
+  });
+  
+  // Abrir nova página de pagamento
+  const paymentUrl = `payment.html?${params.toString()}`;
+  window.open(paymentUrl, '_blank', 'width=600,height=700,scrollbars=yes,resizable=yes');
+  
+  // Salvar dados do agendamento para usar após pagamento
   state.payment = {
-    method: null,
+    method: 'pix',
     service: serviceName,
     signalAmount: payment.signalAmount,
     remainingAmount: payment.remainingAmount
   };
   
-  // Preencher informações no modal
-  document.getElementById('paymentService').textContent = serviceName;
-  document.getElementById('paymentTotal').textContent = PAYMENT_CONFIG.formatBRL(payment.servicePrice);
-  document.getElementById('paymentSignal').textContent = PAYMENT_CONFIG.formatBRL(payment.signalAmount);
-  document.getElementById('paymentRemaining').textContent = PAYMENT_CONFIG.formatBRL(payment.remainingAmount);
-  
-  // Usar QR Code dinâmico
-  const qrCodeURL = PAYMENT_CONFIG.getQRCodeURL(payment.signalAmount);
-  console.log('QR Code URL:', qrCodeURL);
-  document.getElementById('pixQRCode').src = qrCodeURL;
-  
-  // Mostrar modal
-  const modal = document.getElementById('paymentModal');
-  console.log('Modal encontrado:', modal);
-  if (modal) {
-    modal.classList.add('active');
-    console.log('Modal ativado');
-    alert('Modal deve estar visível agora!');
-  } else {
-    console.error('Modal não encontrado');
-    alert('ERRO: Modal não encontrado no HTML!');
-  }
-  
-  // Resetar seleção de método
-  document.querySelectorAll('.payment-option').forEach(btn => btn.classList.remove('selected'));
-  document.querySelectorAll('.payment-form').forEach(form => form.classList.add('hidden'));
+  // Mostrar mensagem de aguardando pagamento
+  setInfo(
+    "info-warn",
+    "Aguardando pagamento...",
+    `Complete o pagamento de ${PAYMENT_CONFIG.formatBRL(payment.signalAmount)} na janela que abriu. Esta página será atualizada automaticamente.`
+  );
 }
 
 function closePaymentModal() {
@@ -749,10 +796,10 @@ function initSchedulerEvents() {
       el.btnConfirmarSlot.disabled = true;
       el.btnConfirmarSlot.innerHTML = '<span class="loading-spinner"></span> Processando...';
       
-      // Abrir modal de pagamento em vez de confirmar diretamente
-      console.log('Chamando openPaymentModal com:', servico);
-      alert('Vai chamar openPaymentModal agora!');
-      openPaymentModal(servico);
+      // Abrir página de pagamento em vez de modal
+      console.log('Chamando openPaymentPage com:', servico);
+      alert('Vai abrir página de pagamento agora!');
+      openPaymentPage(servico);
       
       // Reabilitar botão
       el.btnConfirmarSlot.disabled = false;
