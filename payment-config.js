@@ -20,9 +20,10 @@ const PAYMENT_CONFIG = {
     
     // Configurações Pix
     pix: {
-      key: 'studio-stephanie-sena@pix.com.br',
-      name: 'Studio Stephanie Sena',
-      city: 'Belo Horizonte'
+      key: '60.605.653 STEPHANIE SENA',
+      name: 'STEPHANIE SENA RAMOS SILVA',
+      city: 'SAO PAULO',
+      payload: '00020126360014BR.GOV.BCB.PIX0114606056530001265204000053039865802BR592560.605.653 STEPHANIE SENA6009SAO PAULO62140510j02GXuQh5F630460D4'
     },
     
     // Configurações de pagamento
@@ -51,10 +52,13 @@ const PAYMENT_CONFIG = {
     }).format(value);
   },
   
-  // Usar QR Code personalizado
+  // Gerar QR Code Pix com payload real
   getQRCodeURL(amount) {
-    // Retorna o caminho para o QR Code personalizado
-    return 'QR Code/qr-code-pix.png';
+    // Usa o payload Pix real do arquivo HTML
+    const payload = this.reservation.pix.payload;
+    
+    // Gerar QR Code via API externa
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(payload)}`;
   }
 };
 

@@ -573,12 +573,12 @@ function selectPaymentMethod(method) {
 }
 
 function copyPixKey() {
-  const pixKey = document.getElementById('pixKey').textContent;
+  const pixKey = '60.605.653 STEPHANIE SENA'; // Chave Pix fixa
   navigator.clipboard.writeText(pixKey).then(() => {
     // Feedback visual
     const btn = event.target;
     const originalText = btn.textContent;
-    btn.textContent = '✅ Copiado!';
+    btn.textContent = ' Copiado!';
     btn.style.background = '#059669';
     
     setTimeout(() => {
@@ -587,7 +587,7 @@ function copyPixKey() {
     }, 2000);
   }).catch(err => {
     console.error('Erro ao copiar chave Pix:', err);
-    alert('Não foi possível copiar a chave. Copie manualmente.');
+    alert('Não foi possível copiar a chave. Copie manualmente: 60.605.653 STEPHANIE SENA');
   });
 }
 
