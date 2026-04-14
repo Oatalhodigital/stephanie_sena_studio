@@ -25,6 +25,22 @@ const AGENDAMENTO_STATUS = {
   CANCELADO: 'cancelado'
 };
 
+// Teste inicial
+document.addEventListener('DOMContentLoaded', function() {
+  alert('DOM carregado!');
+  console.log('DOM carregado');
+  
+  // Testar se o modal existe
+  const modal = document.getElementById('paymentModal');
+  if (modal) {
+    console.log('Modal encontrado no carregamento');
+    alert('Modal encontrado no carregamento!');
+  } else {
+    console.error('Modal NÃO encontrado no carregamento');
+    alert('ERRO: Modal NÃO encontrado no carregamento!');
+  }
+});
+
 const state = {
   db: null,
   firebaseReady: false,
@@ -505,6 +521,7 @@ async function cancelCurrentBooking() {
 
 // Funções de Pagamento
 function openPaymentModal(serviceName) {
+  alert('openPaymentModal chamada com: ' + serviceName);
   console.log('openPaymentModal chamada com:', serviceName);
   
   if (!window.PAYMENT_CONFIG) {
@@ -543,8 +560,10 @@ function openPaymentModal(serviceName) {
   if (modal) {
     modal.classList.add('active');
     console.log('Modal ativado');
+    alert('Modal deve estar visível agora!');
   } else {
     console.error('Modal não encontrado');
+    alert('ERRO: Modal não encontrado no HTML!');
   }
   
   // Resetar seleção de método
@@ -698,6 +717,7 @@ function initSchedulerEvents() {
   el.slotsGrid.addEventListener("click", handleSlotsClick);
 
   el.leadForm.addEventListener("submit", async (e) => {
+    alert('Formulário submetido!');
     console.log('Formulário submetido');
     e.preventDefault();
     if (!state.firebaseReady) {
@@ -731,6 +751,7 @@ function initSchedulerEvents() {
       
       // Abrir modal de pagamento em vez de confirmar diretamente
       console.log('Chamando openPaymentModal com:', servico);
+      alert('Vai chamar openPaymentModal agora!');
       openPaymentModal(servico);
       
       // Reabilitar botão
