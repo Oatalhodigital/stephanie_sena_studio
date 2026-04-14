@@ -690,41 +690,47 @@ function initSchedulerEvents() {
       return;
     }
 
-  if (!nome || !celular || !servico || !dateISO || !hour) {
-    setInfo("info-warn", "Campos obrigatórios", "Preencha todos os campos para continuar.");
-    return;
-  }
+    const nome = el.nome.value.trim();
+    const celular = el.celular.value.trim();
+    const servico = el.servico.value;
+    const dateISO = state.selectedDate;
+    const hour = state.selectedSlot;
+
+    if (!nome || !celular || !servico || !dateISO || !hour) {
+      setInfo("info-warn", "Campos obrigatórios", "Preencha todos os campos para continuar.");
+      return;
+    }
 
   try {
-    await ensureNoPastDate(dateISO);
-    if (!servico) throw new Error("SERVICO_OBRIGATORIO");
-    if (!hour) throw new Error("HORA_OBRIGATORIA");
+      await ensureNoPastDate(dateISO);
+      if (!servico) throw new Error("SERVICO_OBRIGATORIO");
+      if (!hour) throw new Error("HORA_OBRIGATORIA");
 
-    el.btnConfirmarSlot.disabled = true;
-    el.btnConfirmarSlot.innerHTML = '<span class="loading-spinner"></span> Processando...';
-    
-    // Abrir modal de pagamento em vez de confirmar diretamente
-    openPaymentModal(servico);
-    
-    // Reabilitar botão
-    el.btnConfirmarSlot.disabled = false;
-    el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
-    
-  } catch (error) {
-    el.btnConfirmarSlot.disabled = false;
-    el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
-    
-    if (error.message === "DATE_IN_PAST") {
-      setInfo("info-warn", "Data inválida", "Selecione uma data futura para agendar.");
-    } else if (error.message === "SERVICO_OBRIGATORIO") {
-      setInfo("info-warn", "Serviço obrigatório", "Selecione o serviço desejado.");
-    } else if (error.message === "HORA_OBRIGATORIA") {
-      setInfo("info-warn", "Horário obrigatório", "Selecione um horário disponível.");
-    } else {
-      setInfo("info-error", "Erro ao processar", "Tente novamente em alguns instantes.");
+      el.btnConfirmarSlot.disabled = true;
+      el.btnConfirmarSlot.innerHTML = '<span class="loading-spinner"></span> Processando...';
+      
+      // Abrir modal de pagamento em vez de confirmar diretamente
+      openPaymentModal(servico);
+      
+      // Reabilitar botão
+      el.btnConfirmarSlot.disabled = false;
+      el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
+      
+    } catch (error) {
+      el.btnConfirmarSlot.disabled = false;
+      el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
+      
+      if (error.message === "DATE_IN_PAST") {
+        setInfo("info-warn", "Data inválida", "Selecione uma data futura para agendar.");
+      } else if (error.message === "SERVICO_OBRIGATORIO") {
+        setInfo("info-warn", "Serviço obrigatório", "Selecione o serviço desejado.");
+      } else if (error.message === "HORA_OBRIGATORIA") {
+        setInfo("info-warn", "Horário obrigatório", "Selecione um horário disponível.");
+      } else {
+        setInfo("info-error", "Erro ao processar", "Tente novamente em alguns instantes.");
+      }
     }
-  }
-});
+  });
 
   if (el.btnConfirmarWhats) {
     el.btnConfirmarWhats.addEventListener("click", confirmByWhatsapp);
