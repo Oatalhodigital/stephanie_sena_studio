@@ -505,12 +505,18 @@ async function cancelCurrentBooking() {
 
 // Funções de Pagamento
 function openPaymentModal(serviceName) {
+  console.log('openPaymentModal chamada com:', serviceName);
+  
   if (!window.PAYMENT_CONFIG) {
     console.error('Configuração de pagamento não encontrada');
+    alert('Erro: configuração de pagamento não carregada');
     return;
   }
   
+  console.log('PAYMENT_CONFIG encontrado:', window.PAYMENT_CONFIG);
+  
   const payment = PAYMENT_CONFIG.calculateSignal(serviceName);
+  console.log('Cálculo do pagamento:', payment);
   
   // Atualizar estado de pagamento
   state.payment = {
@@ -526,12 +532,20 @@ function openPaymentModal(serviceName) {
   document.getElementById('paymentSignal').textContent = PAYMENT_CONFIG.formatBRL(payment.signalAmount);
   document.getElementById('paymentRemaining').textContent = PAYMENT_CONFIG.formatBRL(payment.remainingAmount);
   
-  // Usar QR Code personalizado
-  const qrCodePath = PAYMENT_CONFIG.getQRCodePath(payment.signalAmount);
-  document.getElementById('pixQRCode').src = qrCodePath;
+  // Usar QR Code dinâmico
+  const qrCodeURL = PAYMENT_CONFIG.getQRCodeURL(payment.signalAmount);
+  console.log('QR Code URL:', qrCodeURL);
+  document.getElementById('pixQRCode').src = qrCodeURL;
   
   // Mostrar modal
-  document.getElementById('paymentModal').classList.add('active');
+  const modal = document.getElementById('paymentModal');
+  console.log('Modal encontrado:', modal);
+  if (modal) {
+    modal.classList.add('active');
+    console.log('Modal ativado');
+  } else {
+    console.error('Modal não encontrado');
+  }
   
   // Resetar seleção de método
   document.querySelectorAll('.payment-option').forEach(btn => btn.classList.remove('selected'));
@@ -684,6 +698,7 @@ function initSchedulerEvents() {
   el.slotsGrid.addEventListener("click", handleSlotsClick);
 
   el.leadForm.addEventListener("submit", async (e) => {
+    console.log('Formulário submetido');
     e.preventDefault();
     if (!state.firebaseReady) {
       setInfo("info-warn", "Configuração pendente", "Finalize o Firebase para liberar o agendamento em tempo real.");
@@ -696,12 +711,17 @@ function initSchedulerEvents() {
     const dateISO = state.selectedDate;
     const hour = state.selectedSlot;
 
+    console.log('Dados do formulário:', { nome, celular, servico, dateISO, hour });
+
     if (!nome || !celular || !servico || !dateISO || !hour) {
+      console.log('Campos obrigatórios faltando');
       setInfo("info-warn", "Campos obrigatórios", "Preencha todos os campos para continuar.");
       return;
     }
 
-  try {
+    console.log('Todos os campos preenchidos, abrindo modal de pagamento');
+    
+    try {
       await ensureNoPastDate(dateISO);
       if (!servico) throw new Error("SERVICO_OBRIGATORIO");
       if (!hour) throw new Error("HORA_OBRIGATORIA");
@@ -710,6 +730,7 @@ function initSchedulerEvents() {
       el.btnConfirmarSlot.innerHTML = '<span class="loading-spinner"></span> Processando...';
       
       // Abrir modal de pagamento em vez de confirmar diretamente
+      console.log('Chamando openPaymentModal com:', servico);
       openPaymentModal(servico);
       
       // Reabilitar botão
@@ -717,6 +738,7 @@ function initSchedulerEvents() {
       el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
       
     } catch (error) {
+      console.error('Erro no processamento:', error);
       el.btnConfirmarSlot.disabled = false;
       el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
       

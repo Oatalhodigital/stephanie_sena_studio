@@ -52,7 +52,7 @@ const PAYMENT_CONFIG = {
   },
   
   // Usar QR Code personalizado
-  getQRCodePath(amount) {
+  getQRCodeURL(amount) {
     // Retorna o caminho para o QR Code personalizado
     return 'QR Code/qr-code-pix.png';
   }
