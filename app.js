@@ -516,7 +516,10 @@ async function refreshInitialSlots(dateISO) {
   const booked = [];
   snapshot.forEach((d) => {
     const row = d.data();
-    if (row?.hour) booked.push(row.hour);
+    // Ignorar agendamentos cancelados - horários cancelados ficam disponíveis
+    if (row?.hour && row.status !== 'cancelado') {
+      booked.push(row.hour);
+    }
   });
   renderSlots(booked);
 }

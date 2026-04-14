@@ -28,70 +28,117 @@
       background: var(--dourado);
       color: var(--preto);
       padding: 20px;
-      border-radius: 12px;
+      border-radius: 10px;
       margin-bottom: 30px;
       text-align: center;
     }
-    .calendar-view {
+    .admin-header h1 {
+      margin: 0;
+      font-size: 2.5rem;
+    }
+    .admin-header p {
+      margin: 10px 0 0 0;
+      opacity: 0.9;
+    }
+    .login-section {
+      max-width: 400px;
+      margin: 100px auto;
+      padding: 30px;
       background: white;
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      margin-bottom: 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     }
-    .booking-card {
-      background: var(--cinza);
+    .login-section h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: var(--preto);
+    }
+    .login-form input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
       border-radius: 8px;
-      padding: 15px;
+      font-size: 16px;
       margin-bottom: 15px;
-      border-left: 4px solid var(--dourado);
+      transition: border-color 0.3s;
     }
-    .booking-card.cancelado {
-      border-left-color: #dc3545;
-      opacity: 0.7;
+    .login-form input:focus {
+      outline: none;
+      border-color: var(--dourado);
     }
-    .booking-card.confirmado {
-      border-left-color: #28a745;
+    .login-form button {
+      width: 100%;
+      padding: 12px;
+      background: var(--dourado);
+      color: var(--preto);
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
     }
-    .filter-buttons {
+    .login-form button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
+    }
+    .filter-section {
       display: flex;
       gap: 10px;
-      margin-bottom: 20px;
+      margin-bottom: 30px;
       flex-wrap: wrap;
     }
     .filter-btn {
-      padding: 8px 16px;
-      border: 1px solid var(--dourado);
+      padding: 10px 20px;
+      border: 2px solid var(--dourado);
       background: white;
-      color: var(--dourado);
-      border-radius: 6px;
+      color: var(--preto);
+      border-radius: 25px;
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: all 0.3s;
+      font-weight: 500;
+    }
+    .filter-btn:hover {
+      background: var(--dourado);
+      transform: translateY(-2px);
     }
     .filter-btn.active {
       background: var(--dourado);
-      color: white;
+      color: var(--preto);
     }
-    .booking-info {
+    .bookings-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 10px;
-      margin-top: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 20px;
     }
-    .info-item {
-      font-size: 14px;
+    .booking-card {
+      background: white;
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+      transition: transform 0.3s, box-shadow 0.3s;
     }
-    .info-label {
+    .booking-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    .booking-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+    .booking-date {
+      font-size: 1.2rem;
       font-weight: 600;
       color: var(--preto);
     }
-    .info-value {
-      color: #6b7280;
-    }
-    .status-badge {
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
+    .booking-status {
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 0.9rem;
       font-weight: 600;
       text-transform: uppercase;
     }
@@ -107,24 +154,17 @@
       background: #f8d7da;
       color: #721c24;
     }
-    .login-section {
-      background: white;
-      border-radius: 12px;
-      padding: 40px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      max-width: 400px;
-      margin: 100px auto;
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding: 5px 0;
     }
-    .login-input {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      margin-bottom: 15px;
-      font-family: 'Poppins', sans-serif;
+    .info-label {
+      font-weight: 500;
+      color: #666;
     }
-    .login-btn {
-      width: 100%;
+    .info-value {
       padding: 12px;
       background: var(--dourado);
       color: white;

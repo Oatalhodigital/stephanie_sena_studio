@@ -156,10 +156,19 @@ function renderBookings(bookings) {
       ${booking.status === 'pendente' ? `
         <div style="margin-top: 15px; display: flex; gap: 10px;">
           <button onclick="updateBookingStatus('${booking.id}', 'confirmado')" style="flex: 1; padding: 8px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            ✅ Confirmar
+            Confirmar
           </button>
-          <button onclick="updateBookingStatus('${booking.id}', 'cancelado')" style="flex: 1; padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            ❌ Cancelar
+          <button onclick="confirmCancel('${booking.id}')" style="flex: 1; padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Cancelar
+          </button>
+        </div>
+      ` : booking.status === 'confirmado' ? `
+        <div style="margin-top: 15px; display: flex; gap: 10px;">
+          <div style="flex: 1; padding: 8px; background: #28a745; color: white; border: none; border-radius: 4px; text-align: center;">
+            Confirmado
+          </div>
+          <button onclick="confirmCancel('${booking.id}')" style="flex: 1; padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Cancelar
           </button>
         </div>
       ` : ''}
@@ -167,46 +176,89 @@ function renderBookings(bookings) {
   `).join('');
 }
 
+// Sistema de notificações
+function showNotification(title, message, type = 'info') {
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#007bff'};
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 10000;
+    max-width: 300px;
+    animation: slideIn 0.3s ease;
+  `;
+  
+  notification.innerHTML = `
+    <div style="font-weight: bold; margin-bottom: 5px;">${title}</div>
+    <div style="font-size: 14px;">${message}</div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Auto remover após 5 segundos
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 300);
+  }, 5000);
+}
+
+// Confirmar cancelamento com diálogo
+window.confirmCancel = async function(bookingId) {
+  const confirmed = confirm('Deseja realmente cancelar este agendamento? O horário ficará disponível novamente no site.');
+  
+  if (confirmed) {
+    await updateBookingStatus(bookingId, 'cancelado');
+  }
+};
+
 // Atualizar status do agendamento
 window.updateBookingStatus = async function(bookingId, newStatus) {
+  console.log('Iniciando atualização:', { bookingId, newStatus });
+  
   try {
     // Validação do documento
     if (!bookingId || bookingId.trim() === '') {
       console.error('ID do agendamento inválido:', bookingId);
+      alert('ID do agendamento inválido');
       return;
     }
     
     const ref = doc(db, "agendamentos", bookingId);
+    console.log('Referência criada:', ref.path);
     
-    // Verifica se o documento existe antes de atualizar
-    const docSnap = await getDoc(ref);
-    if (!docSnap.exists()) {
-      console.error('Agendamento não encontrado:', bookingId);
-      alert('Agendamento não encontrado no sistema.');
-      return;
-    }
-    
+    // Simplificar: apenas atualizar sem verificar existência
     await updateDoc(ref, {
       status: newStatus,
       updatedAt: serverTimestamp()
     });
     
-    // Remove o alert e apenas recarrega a lista
-    await loadBookings(); // Recarrega a lista automaticamente
+    console.log('Documento atualizado com sucesso');
+    
+    // Notificação especial para cancelamento
+    if (newStatus === 'cancelado') {
+      showNotification('Horário liberado!', 'O horário foi cancelado e está disponível novamente no site.', 'success');
+    }
+    
+    // Recarregar a lista
+    await loadBookings();
     
     console.log(`Agendamento ${bookingId} atualizado para ${newStatus}`);
-  } catch (error) {
-    console.error('Erro ao atualizar status:', error);
-    console.error('Detalhes do erro:', error.code, error.message);
     
-    // Mensagem de erro mais específica
-    if (error.code === 'permission-denied') {
-      alert('Erro: Sem permissão para atualizar este agendamento.');
-    } else if (error.code === 'not-found') {
-      alert('Erro: Agendamento não encontrado.');
-    } else {
-      alert(`Erro ao atualizar status: ${error.message || 'Erro desconhecido'}`);
-    }
+  } catch (error) {
+    console.error('Erro completo:', error);
+    console.error('Código do erro:', error.code);
+    console.error('Mensagem do erro:', error.message);
+    
+    alert(`Erro ao atualizar status: ${error.message}`);
   }
 };
 
