@@ -29,10 +29,17 @@ const state = {
   db: null,
   firebaseReady: false,
   mode: "local",
-  selectedDate: "",
+  selectedDate: todayStr(),
   selectedSlot: "",
   activeUnsubscribe: null,
-  selectedBooking: null
+  selectedBooking: null,
+  payment: {
+    method: null,
+    service: null,
+    amount: null,
+    reservationAmount: null,
+    remainingAmount: null
+  }
 };
 
 const el = {
@@ -496,7 +503,133 @@ async function cancelCurrentBooking() {
   }
 }
 
-function confirmByWhatsapp() {
+// Funções de Pagamento
+function openPaymentModal(serviceName) {
+  if (!window.PAYMENT_CONFIG) {
+    console.error('Configuração de pagamento não encontrada');
+    return;
+  }
+  
+  const payment = PAYMENT_CONFIG.calculateReservation(serviceName);
+  
+  // Atualizar estado de pagamento
+  state.payment = {
+    method: null,
+    service: serviceName,
+    amount: payment.servicePrice,
+    reservationAmount: payment.reservationAmount,
+    remainingAmount: payment.remainingAmount
+  };
+  
+  // Preencher informações no modal
+  document.getElementById('paymentService').textContent = serviceName;
+  document.getElementById('paymentTotal').textContent = PAYMENT_CONFIG.formatBRL(payment.servicePrice);
+  document.getElementById('paymentReservation').textContent = PAYMENT_CONFIG.formatBRL(payment.reservationAmount);
+  document.getElementById('paymentRemaining').textContent = PAYMENT_CONFIG.formatBRL(payment.remainingAmount);
+  
+  // Mostrar modal
+  document.getElementById('paymentModal').classList.add('active');
+  
+  // Resetar seleção de método
+  document.querySelectorAll('.payment-option').forEach(btn => btn.classList.remove('selected'));
+  document.querySelectorAll('.payment-form').forEach(form => form.classList.add('hidden'));
+}
+
+function closePaymentModal() {
+  document.getElementById('paymentModal').classList.remove('active');
+  state.payment.method = null;
+}
+
+function selectPaymentMethod(method) {
+  // Atualizar seleção visual
+  document.querySelectorAll('.payment-option').forEach(btn => btn.classList.remove('selected'));
+  event.target.closest('.payment-option').classList.add('selected');
+  
+  // Esconder todos os formulários
+  document.querySelectorAll('.payment-form').forEach(form => form.classList.add('hidden'));
+  
+  // Mostrar formulário selecionado
+  document.getElementById(method + 'Payment').classList.remove('hidden');
+  
+  // Atualizar estado
+  state.payment.method = method;
+}
+
+function copyPixKey() {
+  const pixKey = document.getElementById('pixKey').textContent;
+  navigator.clipboard.writeText(pixKey).then(() => {
+    // Feedback visual
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.textContent = '✅ Copiado!';
+    btn.style.background = '#059669';
+    
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.background = '';
+    }, 2000);
+  }).catch(err => {
+    console.error('Erro ao copiar chave Pix:', err);
+    alert('Não foi possível copiar a chave. Copie manualmente.');
+  });
+}
+
+async function confirmPayment() {
+  if (!state.payment.method) {
+    alert('Selecione uma forma de pagamento');
+    return;
+  }
+  
+  try {
+    // Criar agendamento com status "aguardando_pagamento"
+    const booking = await bookSlot({
+      nome: el.nome.value,
+      celular: el.celular.value,
+      servico: state.payment.service,
+      dateISO: state.selectedDate,
+      hour: state.selectedSlot,
+      status: 'aguardando_pagamento',
+      paymentMethod: state.payment.method,
+      reservationAmount: state.payment.reservationAmount,
+      remainingAmount: state.payment.remainingAmount
+    });
+    
+    // Fechar modal
+    closePaymentModal();
+    
+    // Mostrar mensagem de sucesso
+    setInfo(
+      "info-ok",
+      "Pagamento em processamento!",
+      `Sua reserva de ${PAYMENT_CONFIG.formatBRL(state.payment.reservationAmount)} foi registrada. Você receberá a confirmação via WhatsApp.`
+    );
+    
+    // Limpar formulário
+    el.leadForm.reset();
+    state.selectedSlot = null;
+    
+    // Recarregar horários disponíveis
+    await refreshInitialSlots(state.selectedDate);
+    
+  } catch (error) {
+    console.error('Erro ao confirmar pagamento:', error);
+    setInfo(
+      "info-error",
+      "Erro no processamento",
+      "Não foi possível processar seu pagamento. Tente novamente."
+    );
+  }
+}
+
+function proceedToCardPayment() {
+  // Implementar integração com gateway de pagamento
+  // Por enquanto, simula pagamento confirmado
+  alert('Redirecionando para página segura de pagamento...');
+  // Aqui você integraria com Stripe, Mercado Pago, etc.
+}
+
+// Modificar função de confirmação original
+async function confirmByWhatsapp() {
   if (!state.selectedBooking) return;
   
   // Rastreia clique no botão de agendamento
@@ -516,8 +649,8 @@ async function refreshInitialSlots(dateISO) {
   const booked = [];
   snapshot.forEach((d) => {
     const row = d.data();
-    // Ignorar agendamentos cancelados - horários cancelados ficam disponíveis
-    if (row?.hour && row.status !== 'cancelado') {
+    // Ignorar agendamentos cancelados e em espera de pagamento
+    if (row?.hour && row.status !== 'cancelado' && row.status !== 'aguardando_pagamento') {
       booked.push(row.hour);
     }
   });
@@ -550,81 +683,41 @@ function initSchedulerEvents() {
       return;
     }
 
-    const nome = (el.nome.value || "").trim();
-    const celularRaw = (el.celular.value || "").trim();
-    const celular = normalizePhone(celularRaw);
-    const servico = (el.servico.value || "").trim();
-    const dateISO = el.dataAgendamento.value;
-    const hour = state.selectedSlot;
+  if (!nome || !celular || !servico || !dateISO || !hour) {
+    setInfo("info-warn", "Campos obrigatórios", "Preencha todos os campos para continuar.");
+    return;
+  }
 
-    try {
-      if (!nome || nome.length < 4) throw new Error("NOME_INVALIDO");
-      if (!celular || celular.length < 10) throw new Error("CELULAR_INVALIDO");
-      await ensureNoPastDate(dateISO);
-      if (!servico) throw new Error("SERVICO_OBRIGATORIO");
-      if (!hour) throw new Error("HORA_OBRIGATORIA");
+  try {
+    await ensureNoPastDate(dateISO);
+    if (!servico) throw new Error("SERVICO_OBRIGATORIO");
+    if (!hour) throw new Error("HORA_OBRIGATORIA");
 
-      el.btnConfirmarSlot.disabled = true;
-      el.btnConfirmarSlot.innerHTML = '<span class="loading-spinner"></span> Agendando...';
-      
-      try {
-        const booking = await bookSlot({ nome, celular, servico, dateISO, hour });
-        
-        // Rastreia evento de agendamento bem-sucedido
-        trackEvent('agendamento_concluido', {
-          event_category: 'conversion',
-          event_label: 'formulario_agendamento',
-          value: 1
-        });
-        
-        // Aguarda confirmação do salvamento antes de redirecionar para WhatsApp
-        await notifyWebhook(booking);
-        
-        el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
-        
-        // Mensagem de sucesso
-        setInfo(
-          "info-ok",
-          "Agendamento confirmado!",
-          `Reserva criada para ${formatDateBR(dateISO)} às ${hour}. Redirecionando para WhatsApp...`
-        );
-        
-        // Limpa formulário
-        el.nome.value = "";
-        el.celular.value = "";
-        el.servico.value = "";
-        
-        // Envia notificações após salvar com sucesso
-        await sendNotifications(booking);
-        
-        // Habilita botão de WhatsApp manual
-        enableWhatsButton(booking);
-        state.selectedSlot = "";
-        
-      } catch (error) {
-        throw error; // Propaga erro para o catch externo
-      }
-    } catch (error) {
-      if (error.message === "SLOT_ALREADY_BOOKED") {
-        setInfo("info-warn", "Horário indisponível", "Esse horário já foi reservado por outro cliente. Escolha outro horário.");
-      } else if (error.message === "NOME_INVALIDO") {
-        setInfo("info-error", "Nome inválido", "Digite seu nome completo para continuar.");
-      } else if (error.message === "CELULAR_INVALIDO") {
-        setInfo("info-error", "Celular inválido", "Digite um número de celular válido com DDD.");
-      } else if (error.message === "DATA_INVALIDA") {
-        setInfo("info-error", "Data inválida", "Selecione uma data de hoje em diante.");
-      } else if (error.message === "SERVICO_OBRIGATORIO") {
-        setInfo("info-error", "Serviço obrigatório", "Selecione o serviço desejado para continuar.");
-      } else if (error.message === "HORA_OBRIGATORIA") {
-        setInfo("info-error", "Horário obrigatório", "Selecione um horário disponível.");
-      } else {
-        setInfo("info-error", "Falha ao confirmar", "Não foi possível concluir agora. Tente novamente em alguns segundos.");
-      }
-    } finally {
-      el.btnConfirmarSlot.disabled = false;
-      el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
+    el.btnConfirmarSlot.disabled = true;
+    el.btnConfirmarSlot.innerHTML = '<span class="loading-spinner"></span> Processando...';
+    
+    // Abrir modal de pagamento em vez de confirmar diretamente
+    openPaymentModal(servico);
+    
+    // Reabilitar botão
+    el.btnConfirmarSlot.disabled = false;
+    el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
+    
+  } catch (error) {
+    el.btnConfirmarSlot.disabled = false;
+    el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
+    
+    if (error.message === "DATE_IN_PAST") {
+      setInfo("info-warn", "Data inválida", "Selecione uma data futura para agendar.");
+    } else if (error.message === "SERVICO_OBRIGATORIO") {
+      setInfo("info-warn", "Serviço obrigatório", "Selecione o serviço desejado.");
+    } else if (error.message === "HORA_OBRIGATORIA") {
+      setInfo("info-warn", "Horário obrigatório", "Selecione um horário disponível.");
+    } else {
+      setInfo("info-error", "Erro ao processar", "Tente novamente em alguns instantes.");
     }
-  });
+  }
+});
 
   if (el.btnConfirmarWhats) {
     el.btnConfirmarWhats.addEventListener("click", confirmByWhatsapp);

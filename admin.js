@@ -171,6 +171,15 @@ function renderBookings(bookings) {
             Cancelar
           </button>
         </div>
+      ` : booking.status === 'aguardando_pagamento' ? `
+        <div style="margin-top: 15px; display: flex; gap: 10px;">
+          <div style="flex: 1; padding: 8px; background: #ffc107; color: #000; border: none; border-radius: 4px; text-align: center;">
+            💳 Aguardando Pagamento
+          </div>
+          <button onclick="confirmCancel('${booking.id}')" style="flex: 1; padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Cancelar
+          </button>
+        </div>
       ` : ''}
     </div>
   `).join('');
