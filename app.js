@@ -28,7 +28,7 @@ const AGENDAMENTO_STATUS = {
 const state = {
   db: null,
   firebaseReady: false,
-  mode: "local",
+  mode: "firebase",
   selectedDate: "",
   selectedSlot: "",
   activeUnsubscribe: null,
@@ -149,20 +149,23 @@ async function getFirebaseConfig() {
 }
 
 async function initFirebase() {
-  const firebaseConfig = await getFirebaseConfig();
-  if (!firebaseConfig) {
-    state.mode = "local";
-    state.firebaseReady = false;
-    renderSlots([]);
-    disableScheduler(false);
-    return;
-  }
+  // Força uso do Firebase - sem fallback para local
+  const firebaseConfig = {
+    apiKey: "AIzaSyA_6I9MmZ_B6hb0QwqewYyciDIpdAAK9D0",
+    authDomain: "studio-stephanie-sena.firebaseapp.com",
+    projectId: "studio-stephanie-sena",
+    storageBucket: "studio-stephanie-sena.firebasestorage.app",
+    messagingSenderId: "697438120393",
+    appId: "1:697438120393:web:b586bef9902f767684e018",
+    measurementId: "G-T2XMTXZ81M"
+  };
 
   const app = initializeApp(firebaseConfig);
   state.db = getFirestore(app);
   state.firebaseReady = true;
   state.mode = "firebase";
   disableScheduler(false);
+  setInfo("info-ok", "Sistema online", "Agendamento em tempo real ativo. Escolha data e horário para reservar.");
 }
 
 function disableScheduler(disabled) {
@@ -207,8 +210,10 @@ function clearRealtimeSubscription() {
 async function subscribeDay(dateISO) {
   if (!dateISO) return;
 
+  // Força uso do Firebase - sem fallback para localStorage
   if (!state.firebaseReady || !state.db) {
-    renderSlots(getLocalBookedHours(dateISO));
+    console.error('Firebase não está pronto para inscrição em tempo real');
+    renderSlots([]);
     return;
   }
 
@@ -331,15 +336,9 @@ async function sendNotifications(booking) {
 }
 
 async function bookSlot(formData) {
+  // Força uso do Firebase - sem fallback para localStorage
   if (!state.firebaseReady || !state.db) {
-    const localBooking = {
-      id: slotId(formData.dateISO, formData.hour),
-      ...formData,
-      status: AGENDAMENTO_STATUS.PENDENTE,
-      createdAt: new Date().toISOString()
-    };
-    localSaveBooking(localBooking);
-    return localBooking;
+    throw new Error("Firebase não está pronto. Por favor, recarregue a página.");
   }
 
   const { nome, celular, dateISO, hour, servico } = formData;
@@ -372,17 +371,9 @@ async function bookSlot(formData) {
 }
 
 async function updateBookingStatus(bookingId, newStatus) {
+  // Força uso do Firebase - sem fallback para localStorage
   if (!state.firebaseReady || !state.db) {
-    // Update local storage
-    const dateISO = bookingId.split('_')[0];
-    const key = localKey(dateISO);
-    const current = JSON.parse(localStorage.getItem(key) || "{}");
-    if (current[bookingId]) {
-      current[bookingId].status = newStatus;
-      current[bookingId].updatedAt = new Date().toISOString();
-      localStorage.setItem(key, JSON.stringify(current));
-    }
-    return;
+    throw new Error("Firebase não está pronto para atualizar status.");
   }
 
   const ref = doc(state.db, "agendamentos", bookingId);
@@ -507,8 +498,10 @@ function confirmByWhatsapp() {
 }
 
 async function refreshInitialSlots(dateISO) {
-  if (!state.firebaseReady) {
-    renderSlots(getLocalBookedHours(dateISO));
+  // Força uso do Firebase - sem fallback para localStorage
+  if (!state.firebaseReady || !state.db) {
+    console.error('Firebase não está pronto para atualizar horários');
+    renderSlots([]);
     return;
   }
   const q = query(collection(state.db, "agendamentos"), where("dateISO", "==", dateISO));
@@ -542,10 +535,7 @@ function initSchedulerEvents() {
 
   el.leadForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (!state.firebaseReady) {
-      setInfo("info-warn", "Configuração pendente", "Finalize o Firebase para liberar o agendamento em tempo real.");
-      return;
-    }
+    // Firebase sempre deve estar pronto - sem verificação de pendência
 
     const nome = (el.nome.value || "").trim();
     const celularRaw = (el.celular.value || "").trim();
