@@ -1,7 +1,7 @@
 // Configuração do Firebase - Studio Stephanie Sena
 // Não comita credenciais sensíveis em repositórios públicos
 
-// Carregar Firebase globalmente
+// Carregar Firebase SDKs globalmente
 (function() {
   const firebaseConfig = {
     apiKey: "AIzaSyA_6I9MmZ_B6hb0QwqewYyciDIpdAAK9D0",
@@ -13,44 +13,54 @@
     measurementId: "G-T2XMTXZ81M"
   };
 
-  // Inicializar Firebase
-  if (typeof firebase === 'undefined') {
-    // Carregar scripts do Firebase
-    const scripts = [
-      'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js',
-      'https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js',
-      'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js'
-    ];
-    
-    let loaded = 0;
-    scripts.forEach(src => {
-      const script = document.createElement('script');
-      script.src = src;
-      script.onload = () => {
-        loaded++;
-        if (loaded === scripts.length) {
-          initializeFirebase();
-        }
-      };
-      document.head.appendChild(script);
-    });
-  } else {
-    initializeFirebase();
-  }
+  // Carregar scripts do Firebase na ordem correta
+  const scripts = [
+    'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js',
+    'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js',
+    'https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics.js'
+  ];
+  
+  let loaded = 0;
   
   function initializeFirebase() {
     try {
       // Inicializar Firebase
-      window.firebaseApp = firebase.initializeApp(firebaseConfig);
-      window.firebaseAnalytics = firebase.getAnalytics(window.firebaseApp);
-      window.firebaseFirestore = firebase.getFirestore(window.firebaseApp);
+      firebase.initializeApp(firebaseConfig);
+      
+      // Disponibilizar globalmente
+      window.db = firebase.firestore();
+      window.analytics = firebase.analytics();
       
       // Disparar evento de carregamento
       window.dispatchEvent(new CustomEvent('firebaseLoaded'));
       
-      console.log('Firebase inicializado com sucesso');
+      console.log('✅ Firebase inicializado com sucesso');
     } catch (error) {
-      console.error('Erro ao inicializar Firebase:', error);
+      console.error('❌ Erro ao inicializar Firebase:', error);
+      // Inicializar modo local se Firebase falhar
+      window.dispatchEvent(new CustomEvent('firebaseLoaded'));
     }
   }
+  
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+  
+  // Carregar todos os scripts
+  Promise.all(scripts.map(loadScript))
+    .then(() => {
+      console.log('📦 Todos os scripts Firebase carregados');
+      initializeFirebase();
+    })
+    .catch(error => {
+      console.error('❌ Erro ao carregar scripts Firebase:', error);
+      // Inicializar modo local
+      window.dispatchEvent(new CustomEvent('firebaseLoaded'));
+    });
 })();

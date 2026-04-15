@@ -5,7 +5,6 @@ const PAYMENT_CONFIG = {
     'Manutenção até 15 dias': 65.00,
     'Manutenção mais de 25 dias': 85.00,
     'Manutenção + cutilagem + esmaltação em gel': 105.00,
-    'Blindagem em Gel': 50.00,
     'Banho de Gel': 100.00,
     'Esmaltação em Gel': 35.00,
     'Alongamento': 140.00,

@@ -13,18 +13,19 @@ const AGENDAMENTO_STATUS = {
 
 // Aguardar carregamento do Firebase
 window.addEventListener('firebaseLoaded', function() {
-  console.log('Firebase carregado, inicializando...');
+  console.log('🔥 Firebase carregado, inicializando sistema...');
   initSchedulerEvents();
+  boot();
 });
 
 // Teste inicial
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('DOM carregado');
+  console.log('📄 DOM carregado, aguardando Firebase...');
   
   // Listener para receber confirmação de pagamento da janela popup
   window.addEventListener('message', function(event) {
     if (event.data.type === 'payment_confirmed') {
-      console.log('Pagamento confirmado:', event.data);
+      console.log('💰 Pagamento confirmado:', event.data);
       
       // Processar o agendamento
       processConfirmedPayment(event.data);
@@ -208,18 +209,18 @@ async function getFirebaseConfig() {
 
 async function initFirebase() {
   // Firebase já foi carregado globalmente
-  if (window.firebaseFirestore) {
-    state.db = window.firebaseFirestore;
+  if (window.db) {
+    state.db = window.db;
     state.firebaseReady = true;
     state.mode = "firebase";
     disableScheduler(false);
-    console.log('Firebase conectado com sucesso');
+    console.log('✅ Firebase conectado com sucesso');
   } else {
     state.mode = "local";
     state.firebaseReady = false;
     renderSlots([]);
     disableScheduler(false);
-    console.log('Firebase não disponível, usando modo local');
+    console.log('⚠️ Firebase não disponível, usando modo local');
   }
 }
 
@@ -271,9 +272,8 @@ async function subscribeDay(dateISO) {
   }
 
   clearRealtimeSubscription();
-  const q = firebase.firestore.query(firebase.firestore.collection(state.db, "agendamentos"), firebase.firestore.where("dateISO", "==", dateISO));
-  state.activeUnsubscribe = firebase.firestore.onSnapshot(
-    q,
+  const q = state.db.collection("agendamentos").where("dateISO", "==", dateISO);
+  state.activeUnsubscribe = q.onSnapshot(
     (snapshot) => {
       const booked = [];
       snapshot.forEach((d) => {
@@ -401,24 +401,25 @@ async function bookSlot(formData) {
 
   const { nome, celular, dateISO, hour, servico } = formData;
   const id = slotId(dateISO, hour);
-  const ref = firebase.firestore.doc(state.db, "agendamentos", slotId(dateISO, hour));
-    await firebase.firestore.runTransaction(state.db, async (transaction) => {
-      const docSnap = await transaction.get(ref);
-      if (docSnap.exists()) throw new Error("SLOT_ALREADY_BOOKED");
-      transaction.set(ref, {
-        nome,
-        celular,
-        servico,
-        dateISO,
-        hour,
-        status: formData.status || AGENDAMENTO_STATUS.PENDENTE,
-        paymentMethod: formData.paymentMethod,
-        signalAmount: formData.signalAmount,
-        remainingAmount: formData.remainingAmount,
-        createdAt: firebase.firestore.serverTimestamp(),
-        updatedAt: firebase.firestore.serverTimestamp()
-      });
+  const ref = state.db.collection("agendamentos").doc(slotId(dateISO, hour));
+  
+  await state.db.runTransaction(async (transaction) => {
+    const docSnap = await transaction.get(ref);
+    if (docSnap.exists()) throw new Error("SLOT_ALREADY_BOOKED");
+    transaction.set(ref, {
+      nome,
+      celular,
+      servico,
+      dateISO,
+      hour,
+      status: formData.status || AGENDAMENTO_STATUS.PENDENTE,
+      paymentMethod: formData.paymentMethod,
+      signalAmount: formData.signalAmount,
+      remainingAmount: formData.remainingAmount,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+  });
 
   return {
     id,
@@ -448,10 +449,10 @@ async function updateBookingStatus(bookingId, newStatus) {
     return;
   }
 
-  const ref = firebase.firestore.doc(state.db, "agendamentos", bookingId);
-  await firebase.firestore.updateDoc(ref, {
+  const ref = state.db.collection("agendamentos").doc(bookingId);
+  await ref.update({
     status: newStatus,
-    updatedAt: firebase.firestore.serverTimestamp()
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   });
 }
 
@@ -716,8 +717,8 @@ async function refreshInitialSlots(dateISO) {
     renderSlots(getLocalBookedHours(dateISO));
     return;
   }
-  const q = firebase.firestore.query(firebase.firestore.collection(state.db, "agendamentos"), firebase.firestore.where("dateISO", "==", dateISO));
-  const snapshot = await firebase.firestore.getDocs(q);
+  const q = state.db.collection("agendamentos").where("dateISO", "==", dateISO);
+  const snapshot = await q.get();
   const booked = [];
   snapshot.forEach((d) => {
     const row = d.data();

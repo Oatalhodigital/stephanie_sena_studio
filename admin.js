@@ -1,39 +1,176 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import {
-  getFirestore,
-  collection,
-  query,
-  where,
-  getDocs,
-  getDoc,
-  orderBy,
-  doc,
-  updateDoc,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+// Firebase será carregado globalmente via firebase-config.js
+const STUDIO_WHATSAPP = "5531993627475";
 
-// Configuração Firebase (mesma do firebase-config.js)
-const firebaseConfig = {
-  apiKey: "AIzaSyA_6I9MmZ_B6hb0QwqewYyciDIpdAAK9D0",
-  authDomain: "studio-stephanie-sena.firebaseapp.com",
-  projectId: "studio-stephanie-sena",
-  storageBucket: "studio-stephanie-sena.firebasestorage.app",
-  messagingSenderId: "697438120393",
-  appId: "1:697438120393:web:b586bef9902f767684e018"
-};
+// Aguardar carregamento do Firebase
+window.addEventListener('firebaseLoaded', function() {
+  console.log('🔥 Firebase carregado no admin, inicializando painel...');
+  initAdmin();
+});
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Teste inicial
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('📄 DOM carregado no admin, aguardando Firebase...');
+});
 
 // Estado
 let allBookings = [];
 let currentFilter = 'todos';
 
-// Elementos DOM
-const loginSection = document.getElementById('loginSection');
-const adminPanel = document.getElementById('adminPanel');
-const loginForm = document.getElementById('loginForm');
-const adminPassword = document.getElementById('adminPassword');
+// Inicializar painel administrativo
+async function initAdmin() {
+  // Firebase já foi carregado globalmente
+  if (window.db) {
+    const db = window.db;
+    
+    // Elementos DOM
+    const loginSection = document.getElementById('loginSection');
+    const adminPanel = document.getElementById('adminPanel');
+    const loginForm = document.getElementById('loginForm');
+    const adminPassword = document.getElementById('adminPassword');
+    const bookingsList = document.getElementById('bookingsList');
+    
+    // Senha de acesso (simples para demonstração)
+    const ADMIN_PASSWORD = 'stephanie2026';
+    
+    // Funções de data
+    function formatDateBR(isoDate) {
+      const [y, m, d] = isoDate.split("-");
+      return `${d}/${m}/${y}`;
+    }
+    
+    // Carregar agendamentos
+    async function loadBookings() {
+      try {
+        const q = db.collection("agendamentos").orderBy("createdAt", "desc");
+        const snapshot = await q.get();
+        allBookings = [];
+        snapshot.forEach((doc) => {
+          allBookings.push({
+            id: doc.id,
+            ...doc.data()
+          });
+        });
+        renderBookings();
+      } catch (error) {
+        console.error("Erro ao carregar agendamentos:", error);
+      }
+    }
+    
+    // Confirmar cancelamento com diálogo
+    window.confirmCancel = async function(bookingId) {
+      const confirmed = confirm('Deseja realmente cancelar este agendamento? O horário ficará disponível novamente no site.');
+      
+      if (confirmed) {
+        try {
+          // Atualizar status para cancelado
+          await db.collection("agendamentos").doc(bookingId).update({
+            status: 'cancelado',
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          
+          // Recarregar lista
+          await loadBookings();
+          
+          alert('Agendamento cancelado com sucesso! Horário liberado.');
+        } catch (error) {
+          console.error("Erro ao cancelar agendamento:", error);
+          alert('Erro ao cancelar agendamento. Tente novamente.');
+        }
+      }
+    };
+    
+    // Atualizar status do agendamento
+    window.updateBookingStatus = async function(bookingId, newStatus) {
+      try {
+        await db.collection("agendamentos").doc(bookingId).update({
+          status: newStatus,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // Recarregar lista
+        await loadBookings();
+      } catch (error) {
+        console.error("Erro ao atualizar status:", error);
+        alert('Erro ao atualizar status. Tente novamente.');
+      }
+    };
+    
+    // Renderizar agendamentos
+    function renderBookings() {
+      if (!bookingsList) return;
+      
+      const filtered = currentFilter === 'todos' 
+        ? allBookings 
+        : allBookings.filter(b => b.status === currentFilter);
+      
+      bookingsList.innerHTML = '';
+      
+      if (filtered.length === 0) {
+        bookingsList.innerHTML = '<p style="text-align: center; color: #6b7280;">Nenhum agendamento encontrado.</p>';
+        return;
+      }
+      
+      filtered.forEach(booking => {
+        const div = document.createElement('div');
+        div.className = `booking-item status-${booking.status}`;
+        
+        div.innerHTML = `
+          <div class="booking-header">
+            <span class="booking-name">${booking.nome}</span>
+            <span class="booking-status">${booking.status}</span>
+          </div>
+          <div class="booking-details">
+            <p><strong>Serviço:</strong> ${booking.servico}</p>
+            <p><strong>Data:</strong> ${formatDateBR(booking.dateISO)}</p>
+            <p><strong>Horário:</strong> ${booking.hour}</p>
+            <p><strong>Celular:</strong> ${booking.celular}</p>
+            ${booking.paymentMethod ? `<p><strong>Pagamento:</strong> ${booking.paymentMethod}</p>` : ''}
+            ${booking.signalAmount ? `<p><strong>Sinal:</strong> R$ ${booking.signalAmount.toFixed(2)}</p>` : ''}
+          </div>
+          <div class="booking-actions">
+            ${booking.status === 'confirmado' ? 
+              `<button class="btn-cancel" onclick="confirmCancel('${booking.id}')">Cancelar</button>` : 
+              ''
+            }
+            ${booking.status === 'pendente' ? 
+              `<button class="btn-confirm" onclick="updateBookingStatus('${booking.id}', 'confirmado')">Confirmar</button>
+               <button class="btn-cancel" onclick="confirmCancel('${booking.id}')">Cancelar</button>` : 
+              ''
+            }
+          </div>
+        `;
+        
+        bookingsList.appendChild(div);
+      });
+    }
+    
+    // Filtros
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentFilter = btn.dataset.filter;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderBookings();
+      });
+    });
+    
+    // Login
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (adminPassword.value === ADMIN_PASSWORD) {
+        loginSection.style.display = 'none';
+        adminPanel.style.display = 'block';
+        loadBookings();
+      } else {
+        alert('Senha incorreta!');
+      }
+    });
+    
+    console.log('✅ Painel admin inicializado');
+  } else {
+    console.error('❌ Firebase não disponível no admin');
+  }
+}
 const bookingsList = document.getElementById('bookingsList');
 
 // Senha de acesso (simples para demonstração)
