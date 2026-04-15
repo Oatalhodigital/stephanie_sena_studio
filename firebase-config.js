@@ -34,11 +34,11 @@
       // Disparar evento de carregamento
       window.dispatchEvent(new CustomEvent('firebaseLoaded'));
       
-      console.log('✅ Firebase inicializado com sucesso');
+      console.log('Firebase inicializado com sucesso');
     } catch (error) {
-      console.error('❌ Erro ao inicializar Firebase:', error);
-      // Inicializar modo local se Firebase falhar
-      window.dispatchEvent(new CustomEvent('firebaseLoaded'));
+      console.error('Erro ao inicializar Firebase:', error);
+      // Não permite fallback - força erro para que usuário recarregue
+      throw error;
     }
   }
   
@@ -55,12 +55,12 @@
   // Carregar todos os scripts
   Promise.all(scripts.map(loadScript))
     .then(() => {
-      console.log('📦 Todos os scripts Firebase carregados');
+      console.log('Todos os scripts Firebase carregados');
       initializeFirebase();
     })
     .catch(error => {
-      console.error('❌ Erro ao carregar scripts Firebase:', error);
-      // Inicializar modo local
-      window.dispatchEvent(new CustomEvent('firebaseLoaded'));
+      console.error('Erro ao carregar scripts Firebase:', error);
+      // Não permite fallback - força erro para que usuário recarregue
+      throw error;
     });
 })();

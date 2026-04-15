@@ -311,19 +311,20 @@ async function getFirebaseConfig() {
 }
 
 async function initFirebase() {
-  // Firebase já foi carregado globalmente
+  // Firebase deve estar sempre disponível - não permite modo local
   if (window.db) {
     state.db = window.db;
     state.firebaseReady = true;
     state.mode = "firebase";
     disableScheduler(false);
-    console.log('✅ Firebase conectado com sucesso');
+    console.log('Firebase conectado com sucesso');
   } else {
-    state.mode = "local";
+    // Força erro se Firebase não estiver disponível
+    console.error('Firebase não está disponível - recarregue a página');
     state.firebaseReady = false;
-    renderSlots([]);
-    disableScheduler(false);
-    console.log('⚠️ Firebase não disponível, usando modo local');
+    state.mode = "error";
+    disableScheduler(true);
+    setInfo("info-error", "Erro de conexão", "Recarregue a página para tentar novamente.");
   }
 }
 
@@ -369,8 +370,10 @@ function clearRealtimeSubscription() {
 async function subscribeDay(dateISO) {
   if (!dateISO) return;
 
+  // Força uso do Firebase - sem fallback para localStorage
   if (!state.firebaseReady || !state.db) {
-    renderSlots(getLocalBookedHours(dateISO));
+    console.error('Firebase não está pronto para inscrição em tempo real');
+    renderSlots([]);
     return;
   }
 
@@ -381,7 +384,9 @@ async function subscribeDay(dateISO) {
       const booked = [];
       snapshot.forEach((d) => {
         const row = d.data();
-        if (row?.hour) booked.push(row.hour);
+        if (row?.hour && row.status !== 'cancelado') {
+          booked.push(row.hour);
+        }
       });
 
       if (state.selectedSlot && booked.includes(state.selectedSlot)) {
@@ -491,15 +496,9 @@ async function sendNotifications(booking) {
 }
 
 async function bookSlot(formData) {
+  // Força uso do Firebase - sem fallback para localStorage
   if (!state.firebaseReady || !state.db) {
-    const localBooking = {
-      id: slotId(formData.dateISO, formData.hour),
-      ...formData,
-      status: AGENDAMENTO_STATUS.PENDENTE,
-      createdAt: new Date().toISOString()
-    };
-    localSaveBooking(localBooking);
-    return localBooking;
+    throw new Error("Firebase não está pronto. Por favor, recarregue a página.");
   }
 
   const { nome, celular, dateISO, hour, servico } = formData;
@@ -778,10 +777,13 @@ async function confirmByWhatsapp() {
 }
 
 async function refreshInitialSlots(dateISO) {
-  if (!state.firebaseReady) {
-    renderSlots(getLocalBookedHours(dateISO));
+  // Força uso do Firebase - sem fallback para localStorage
+  if (!state.firebaseReady || !state.db) {
+    console.error('Firebase não está pronto para atualizar horários');
+    renderSlots([]);
     return;
   }
+  
   const q = state.db.collection("agendamentos").where("dateISO", "==", dateISO);
   const snapshot = await q.get();
   const booked = [];
@@ -815,13 +817,10 @@ function initSchedulerEvents() {
   el.slotsGrid.addEventListener("click", handleSlotsClick);
 
   el.leadForm.addEventListener("submit", async (e) => {
-    alert('Formulário submetido!');
     console.log('Formulário submetido');
     e.preventDefault();
-    if (!state.firebaseReady) {
-      setInfo("info-warn", "Configuração pendente", "Finalize o Firebase para liberar o agendamento em tempo real.");
-      return;
-    }
+    
+    // Firebase deve estar sempre pronto - não permite modo local
 
     const nome = el.nome.value.trim();
     const celular = el.celular.value.trim();
@@ -904,10 +903,10 @@ async function boot() {
   state.selectedDate = el.dataAgendamento.value || todayStr();
   await refreshInitialSlots(state.selectedDate);
   await subscribeDay(state.selectedDate);
+  
+  // Firebase deve estar sempre ativo - não mostra mensagem de modo local
   if (state.mode === "firebase") {
     setInfo("info-ok", "Sistema online", "Agendamento em tempo real ativo. Escolha data e horário para reservar.");
-  } else {
-    setInfo("info-warn", "Modo local ativo", "Agendamento funcionando no site. Para sincronizar entre todos os clientes, conecte o Firebase.");
   }
 }
 
