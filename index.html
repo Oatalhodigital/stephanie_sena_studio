@@ -316,11 +316,11 @@
     </section>
   </main>
 
-  <!-- Modal de Pagamento -->
+  <!-- Modal de Pagamento Integrado -->
   <div id="paymentModal" class="payment-modal">
     <div class="payment-content">
       <div class="payment-header">
-        <h3> Confirmar Reserva</h3>
+        <h3>Finalize sua Reserva (Taxa de 30%)</h3>
         <button class="payment-close" onclick="closePaymentModal()">&times;</button>
       </div>
       
@@ -332,83 +332,37 @@
             <span id="paymentService">-</span>
           </div>
           <div class="payment-row">
-            <span>Valor do Serviço:</span>
+            <span>Total:</span>
             <span id="paymentTotal">-</span>
           </div>
           <div class="payment-row reservation">
-            <span>Taxa de Reserva (30%):</span>
+            <span>Reserva (30%):</span>
             <span id="paymentReservation">-</span>
           </div>
           <div class="payment-row remaining">
-            <span>Saldo no Estúdio:</span>
+            <span>Pagar no dia:</span>
             <span id="paymentRemaining">-</span>
           </div>
         </div>
       </div>
       
-      <div class="payment-methods">
-        <h4>Forma de Pagamento</h4>
-        <div class="payment-options">
-          <button class="payment-option" onclick="selectPaymentMethod('pix')">
-            <div class="payment-icon"></div>
-            <div class="payment-info">
-              <strong>Pix</strong>
-              <span>Pagamento instantâneo</span>
+      <div class="payment-pix">
+        <h4>Pague via Pix</h4>
+        <div class="pix-qr">
+          <img id="pixQRCode" src="QR Code/qr-code-pix.png" alt="QR Code Pix" />
+          <div class="pix-info">
+            <p>Escaneie o QR Code ou copie a chave:</p>
+            <div class="pix-key-container">
+              <span id="pixKey">studio-stephanie-sena@pix.com.br</span>
+              <button class="btn-copy" onclick="copyPixKey()">Copiar Chave</button>
             </div>
-          </button>
-          
-          <button class="payment-option" onclick="selectPaymentMethod('cartao')">
-            <div class="payment-icon"></div>
-            <div class="payment-info">
-              <strong>Cartão de Crédito</strong>
-              <span>Parcelamento disponível</span>
-            </div>
-          </button>
+          </div>
         </div>
       </div>
       
-      <!-- Opção Pix -->
-      <div id="pixPayment" class="payment-form hidden">
-        <h4> Pagar com Pix</h4>
-        <div class="pix-info">
-          <div class="pix-qr">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=00020126580014BR.GOV.BCB.PIX0136studio-stephanie-sena@pix.com.br520400005303986540619.505802BR5920Studio%20Stephanie%20Sena6009Belo%20Horizonte62070503***6304B8A3" alt="QR Code Pix" />
-          </div>
-          <div class="pix-details">
-            <p><strong>Chave Pix:</strong></p>
-            <code id="pixKey">60.605.653 STEPHANIE SENA</code>
-            <button class="copy-btn" onclick="copyPixKey()"> Copiar Chave</button>
-          </div>
-        </div>
-        <div class="payment-instructions">
-          <p><strong>Instruções:</strong></p>
-          <ol>
-            <li>Escaneie o QR Code ou copie a chave Pix</li>
-            <li>Faça o pagamento no aplicativo do seu banco</li>
-            <li>Guarde o comprovante</li>
-            <li>Clique em "Já paguei" abaixo</li>
-          </ol>
-        </div>
-        <div class="payment-actions">
-          <button class="btn-secondary" onclick="closePaymentModal()">Voltar</button>
-          <button class="btn-primary" onclick="confirmPayment()">Já paguei</button>
-        </div>
-      </div>
-      
-      <!-- Opção Cartão -->
-      <div id="cartaoPayment" class="payment-form hidden">
-        <h4> Pagar com Cartão</h4>
-        <div class="card-info">
-          <p>Será redirecionado para a página segura de pagamento.</p>
-          <div class="payment-security">
-            <span> Pagamento 100% seguro</span>
-            <span> Dados protegidos</span>
-          </div>
-        </div>
-        <div class="payment-actions">
-          <button class="btn-secondary" onclick="closePaymentModal()">Voltar</button>
-          <button class="btn-primary" onclick="proceedToCardPayment()">Ir para Pagamento</button>
-        </div>
+      <div class="payment-actions">
+        <button class="btn-secondary" onclick="closePaymentModal()">Voltar</button>
+        <button class="btn-primary" onclick="confirmPayment()">Já realizei o pagamento</button>
       </div>
     </div>
   </div>

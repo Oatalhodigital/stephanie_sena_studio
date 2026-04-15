@@ -33,42 +33,145 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// Função para processar pagamento confirmado
-async function processConfirmedPayment(paymentData) {
+// Função para abrir modal de pagamento integrado
+function openPaymentModal(serviceName) {
+  console.log('Abrindo modal de pagamento para:', serviceName);
+  
+  if (!window.PAYMENT_CONFIG) {
+    console.error('Configuração de pagamento não encontrada');
+    alert('Erro: configuração de pagamento não carregada');
+    return;
+  }
+  
+  // Calcular valores baseados no serviço
+  const payment = PAYMENT_CONFIG.calculateSignal(serviceName);
+  console.log('Cálculo do pagamento:', payment);
+  
+  // Armazenar dados do pagamento
+  state.payment = {
+    method: 'pix',
+    service: serviceName,
+    signalAmount: payment.signalAmount,
+    remainingAmount: payment.remainingAmount,
+    totalAmount: payment.servicePrice
+  };
+  
+  // Preencher o modal com os valores
+  document.getElementById('paymentService').textContent = serviceName;
+  document.getElementById('paymentTotal').textContent = PAYMENT_CONFIG.formatBRL(payment.servicePrice);
+  document.getElementById('paymentReservation').textContent = PAYMENT_CONFIG.formatBRL(payment.signalAmount);
+  document.getElementById('paymentRemaining').textContent = PAYMENT_CONFIG.formatBRL(payment.remainingAmount);
+  
+  // Mostrar o modal
+  const modal = document.getElementById('paymentModal');
+  console.log('Modal encontrado:', modal);
+  if (modal) {
+    modal.classList.add('active');
+    console.log('Modal ativado');
+  } else {
+    console.error('Modal não encontrado');
+  }
+}
+
+// Função para fechar modal de pagamento
+function closePaymentModal() {
+  const modal = document.getElementById('paymentModal');
+  if (modal) {
+    modal.classList.remove('active');
+    console.log('Modal fechado');
+  }
+}
+
+// Função para copiar chave Pix
+function copyPixKey() {
+  const pixKey = 'studio-stephanie-sena@pix.com.br';
+  navigator.clipboard.writeText(pixKey).then(() => {
+    // Mostrar feedback visual
+    const btn = document.querySelector('.btn-copy');
+    const originalText = btn.textContent;
+    btn.textContent = 'Copiado!';
+    btn.style.background = '#28a745';
+    
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.background = '';
+    }, 2000);
+  }).catch(err => {
+    console.error('Erro ao copiar chave Pix:', err);
+    // Fallback para browsers antigos
+    const textArea = document.createElement('textarea');
+    textArea.value = pixKey;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    alert('Chave Pix copiada!');
+  });
+}
+
+// Função para confirmar pagamento
+async function confirmPayment() {
+  console.log('Confirmando pagamento...');
+  
+  if (!state.payment) {
+    console.error('Dados de pagamento não encontrados');
+    alert('Erro: dados de pagamento não encontrados');
+    return;
+  }
+  
   try {
+    // Desabilitar botão para evitar cliques duplicados
+    const btnConfirm = document.querySelector('.btn-primary');
+    const originalText = btnConfirm.textContent;
+    btnConfirm.disabled = true;
+    btnConfirm.textContent = 'Processando...';
+    
     // Criar agendamento com status "pendente"
     const booking = await bookSlot({
       nome: el.nome.value,
       celular: el.celular.value,
-      servico: paymentData.service,
+      servico: state.payment.service,
       dateISO: state.selectedDate,
       hour: state.selectedSlot,
       status: 'pendente',
-      paymentMethod: 'pix',
-      signalAmount: paymentData.signal,
-      remainingAmount: paymentData.remaining
+      paymentMethod: state.payment.method,
+      signalAmount: state.payment.signalAmount,
+      remainingAmount: state.payment.remainingAmount
     });
     
     // Mostrar mensagem de sucesso
     setInfo(
       "info-ok",
-      "Agendamento confirmado!",
-      `Seu agendamento foi realizado com sucesso! Sinal de ${PAYMENT_CONFIG.formatBRL(paymentData.signal)} pago.`
+      "Agendamento recebido!",
+      `Sua reserva foi confirmada! Sinal de ${PAYMENT_CONFIG.formatBRL(state.payment.signalAmount)} pago.`
     );
     
     // Enviar notificações
     await sendNotifications(booking);
     enableWhatsButton(booking);
     
-    // Limpar formulário
+    // Fechar modal
+    closePaymentModal();
+    
+    // Limpar formulário e estado
     el.leadForm.reset();
     state.selectedSlot = null;
+    state.payment = null;
     
     // Recarregar horários disponíveis
     await refreshInitialSlots(state.selectedDate);
     
+    // Restaurar botão
+    btnConfirm.disabled = false;
+    btnConfirm.textContent = originalText;
+    
   } catch (error) {
-    console.error('Erro ao processar pagamento confirmado:', error);
+    console.error('Erro ao confirmar pagamento:', error);
+    
+    // Restaurar botão
+    btnConfirm.disabled = false;
+    btnConfirm.textContent = originalText;
+    
     setInfo(
       "info-error",
       "Erro no processamento",
@@ -561,51 +664,13 @@ async function cancelCurrentBooking() {
 }
 
 // Funções de Pagamento
-function openPaymentPage(serviceName) {
-  alert('Redirecionando para página de pagamento...');
-  console.log('Abrindo página de pagamento para:', serviceName);
-  
-  if (!window.PAYMENT_CONFIG) {
-    console.error('Configuração de pagamento não encontrada');
-    alert('Erro: configuração de pagamento não carregada');
-    return;
-  }
-  
-  const payment = PAYMENT_CONFIG.calculateSignal(serviceName);
-  console.log('Cálculo do pagamento:', payment);
-  
-  // Criar URL da página de pagamento com parâmetros
-  const params = new URLSearchParams({
-    service: serviceName,
-    total: payment.servicePrice.toFixed(2),
-    signal: payment.signalAmount.toFixed(2),
-    remaining: payment.remainingAmount.toFixed(2),
-    pixKey: '60.605.653 STEPHANIE SENA',
-    pixPayload: '00020126360014BR.GOV.BCB.PIX0114606056530001265204000053039865802BR592560.605.653 STEPHANIE SENA6009SAO PAULO62140510j02GXuQh5F630460D4'
-  });
-  
-  // Abrir nova página de pagamento
-  const paymentUrl = `payment.html?${params.toString()}`;
-  window.open(paymentUrl, '_blank', 'width=600,height=700,scrollbars=yes,resizable=yes');
-  
-  // Salvar dados do agendamento para usar após pagamento
-  state.payment = {
-    method: 'pix',
-    service: serviceName,
-    signalAmount: payment.signalAmount,
-    remainingAmount: payment.remainingAmount
-  };
-  
-  // Mostrar mensagem de aguardando pagamento
-  setInfo(
-    "info-warn",
-    "Aguardando pagamento...",
-    `Complete o pagamento de ${PAYMENT_CONFIG.formatBRL(payment.signalAmount)} na janela que abriu. Esta página será atualizada automaticamente.`
-  );
-}
 
 function closePaymentModal() {
-  document.getElementById('paymentModal').classList.remove('active');
+  const modal = document.getElementById('paymentModal');
+  if (modal) {
+    modal.classList.remove('active');
+    console.log('Modal fechado');
+  }
   state.payment.method = null;
 }
 
@@ -782,10 +847,9 @@ function initSchedulerEvents() {
       el.btnConfirmarSlot.disabled = true;
       el.btnConfirmarSlot.innerHTML = '<span class="loading-spinner"></span> Processando...';
       
-      // Abrir página de pagamento em vez de modal
-      console.log('Chamando openPaymentPage com:', servico);
-      alert('Vai abrir página de pagamento agora!');
-      openPaymentPage(servico);
+      // Abrir modal de pagamento integrado
+      console.log('Chamando openPaymentModal com:', servico);
+      openPaymentModal(servico);
       
       // Reabilitar botão
       el.btnConfirmarSlot.disabled = false;
