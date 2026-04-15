@@ -1,18 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import {
-  getFirestore,
-  doc,
-  runTransaction,
-  onSnapshot,
-  collection,
-  query,
-  where,
-  getDocs,
-  getDoc,
-  serverTimestamp,
-  updateDoc
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-
+// Firebase será carregado globalmente via firebase-config.js
 const STUDIO_WHATSAPP = "5531993627475";
 const HOUR_START = 8;
 const HOUR_END = 20;
@@ -25,31 +11,25 @@ const AGENDAMENTO_STATUS = {
   CANCELADO: 'cancelado'
 };
 
+// Aguardar carregamento do Firebase
+window.addEventListener('firebaseLoaded', function() {
+  console.log('Firebase carregado, inicializando...');
+  initSchedulerEvents();
+});
+
 // Teste inicial
 document.addEventListener('DOMContentLoaded', function() {
-  alert('DOM carregado!');
   console.log('DOM carregado');
   
   // Listener para receber confirmação de pagamento da janela popup
   window.addEventListener('message', function(event) {
     if (event.data.type === 'payment_confirmed') {
       console.log('Pagamento confirmado:', event.data);
-      alert('Pagamento confirmado! Processando agendamento...');
       
       // Processar o agendamento
       processConfirmedPayment(event.data);
     }
   });
-  
-  // Testar se o modal existe
-  const modal = document.getElementById('paymentModal');
-  if (modal) {
-    console.log('Modal encontrado no carregamento');
-    alert('Modal encontrado no carregamento!');
-  } else {
-    console.error('Modal NÃO encontrado no carregamento');
-    alert('ERRO: Modal NÃO encontrado no carregamento!');
-  }
 });
 
 // Função para processar pagamento confirmado
@@ -227,20 +207,20 @@ async function getFirebaseConfig() {
 }
 
 async function initFirebase() {
-  const firebaseConfig = await getFirebaseConfig();
-  if (!firebaseConfig) {
+  // Firebase já foi carregado globalmente
+  if (window.firebaseFirestore) {
+    state.db = window.firebaseFirestore;
+    state.firebaseReady = true;
+    state.mode = "firebase";
+    disableScheduler(false);
+    console.log('Firebase conectado com sucesso');
+  } else {
     state.mode = "local";
     state.firebaseReady = false;
     renderSlots([]);
     disableScheduler(false);
-    return;
+    console.log('Firebase não disponível, usando modo local');
   }
-
-  const app = initializeApp(firebaseConfig);
-  state.db = getFirestore(app);
-  state.firebaseReady = true;
-  state.mode = "firebase";
-  disableScheduler(false);
 }
 
 function disableScheduler(disabled) {
@@ -291,8 +271,8 @@ async function subscribeDay(dateISO) {
   }
 
   clearRealtimeSubscription();
-  const q = query(collection(state.db, "agendamentos"), where("dateISO", "==", dateISO));
-  state.activeUnsubscribe = onSnapshot(
+  const q = firebase.firestore.query(firebase.firestore.collection(state.db, "agendamentos"), firebase.firestore.where("dateISO", "==", dateISO));
+  state.activeUnsubscribe = firebase.firestore.onSnapshot(
     q,
     (snapshot) => {
       const booked = [];
@@ -303,12 +283,11 @@ async function subscribeDay(dateISO) {
 
       if (state.selectedSlot && booked.includes(state.selectedSlot)) {
         state.selectedSlot = "";
+        if (el.btnConfirmarSlot) el.btnConfirmarSlot.disabled = true;
       }
       renderSlots(booked);
     },
-    () => {
-      setInfo("info-error", "Erro de conexão", "Não foi possível atualizar os horários em tempo real.");
-    }
+    (error) => console.error("Erro em tempo real:", error)
   );
 }
 
@@ -422,8 +401,8 @@ async function bookSlot(formData) {
 
   const { nome, celular, dateISO, hour, servico } = formData;
   const id = slotId(dateISO, hour);
-  const ref = doc(state.db, "agendamentos", slotId(dateISO, hour));
-    await runTransaction(state.db, async (transaction) => {
+  const ref = firebase.firestore.doc(state.db, "agendamentos", slotId(dateISO, hour));
+    await firebase.firestore.runTransaction(state.db, async (transaction) => {
       const docSnap = await transaction.get(ref);
       if (docSnap.exists()) throw new Error("SLOT_ALREADY_BOOKED");
       transaction.set(ref, {
@@ -432,9 +411,12 @@ async function bookSlot(formData) {
         servico,
         dateISO,
         hour,
-        status: AGENDAMENTO_STATUS.PENDENTE,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        status: formData.status || AGENDAMENTO_STATUS.PENDENTE,
+        paymentMethod: formData.paymentMethod,
+        signalAmount: formData.signalAmount,
+        remainingAmount: formData.remainingAmount,
+        createdAt: firebase.firestore.serverTimestamp(),
+        updatedAt: firebase.firestore.serverTimestamp()
       });
     });
 
@@ -445,7 +427,10 @@ async function bookSlot(formData) {
     nome,
     celular,
     servico,
-    status: AGENDAMENTO_STATUS.PENDENTE
+    status: formData.status || AGENDAMENTO_STATUS.PENDENTE,
+    paymentMethod: formData.paymentMethod,
+    signalAmount: formData.signalAmount,
+    remainingAmount: formData.remainingAmount
   };
 }
 
@@ -463,10 +448,10 @@ async function updateBookingStatus(bookingId, newStatus) {
     return;
   }
 
-  const ref = doc(state.db, "agendamentos", bookingId);
-  await updateDoc(ref, {
+  const ref = firebase.firestore.doc(state.db, "agendamentos", bookingId);
+  await firebase.firestore.updateDoc(ref, {
     status: newStatus,
-    updatedAt: serverTimestamp()
+    updatedAt: firebase.firestore.serverTimestamp()
   });
 }
 
@@ -731,8 +716,8 @@ async function refreshInitialSlots(dateISO) {
     renderSlots(getLocalBookedHours(dateISO));
     return;
   }
-  const q = query(collection(state.db, "agendamentos"), where("dateISO", "==", dateISO));
-  const snapshot = await getDocs(q);
+  const q = firebase.firestore.query(firebase.firestore.collection(state.db, "agendamentos"), firebase.firestore.where("dateISO", "==", dateISO));
+  const snapshot = await firebase.firestore.getDocs(q);
   const booked = [];
   snapshot.forEach((d) => {
     const row = d.data();
@@ -847,9 +832,10 @@ async function boot() {
   reveal();
 
   initMentoria();
-  initSchedulerEvents();
   await initFirebase();
-
+  
+  // initSchedulerEvents será chamado pelo evento firebaseLoaded
+  
   state.selectedDate = el.dataAgendamento.value || todayStr();
   await refreshInitialSlots(state.selectedDate);
   await subscribeDay(state.selectedDate);
