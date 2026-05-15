@@ -25,6 +25,38 @@ const AGENDAMENTO_STATUS = {
   CANCELADO: 'cancelado'
 };
 
+// Estados financeiros
+const STATUS_FINANCEIRO = {
+  AGUARDANDO_PAGAMENTO: 'aguardando_pagamento',
+  PENDENTE_CONFIRMACAO: 'pendente_confirmacao',
+  PAGO: 'pago',
+  PAGAMENTO_RECUSADO: 'pagamento_recusado'
+};
+
+// Função para extrair valor do serviço e calcular 30%
+function calcularValoresServico(servico) {
+  const precos = {
+    'Alongamento em gel': 140.00,
+    'Manutenção até 15 dias': 65.00,
+    'Manutenção mais de 25 dias': 85.00,
+    'Blindagem': 50.00,
+    'Banho em gel': 100.00,
+    'Esmaltação em gel': 35.00,
+    'Encapsulada': 0, // Valores adicionais - será tratado separadamente
+    'Babyboomer': 0   // Valores adicionais - será tratado separadamente
+  };
+
+  const valorTotal = precos[servico] || 0;
+  const valorSinal = valorTotal * 0.3; // 30% do valor total
+  const valorRestante = valorTotal - valorSinal;
+
+  return {
+    valorTotal,
+    valorSinal,
+    valorRestante
+  };
+}
+
 const state = {
   db: null,
   firebaseReady: false,
@@ -49,7 +81,28 @@ const el = {
   agendamentoInfoTitulo: document.getElementById("agendamentoInfoTitulo"),
   agendamentoInfoTexto: document.getElementById("agendamentoInfoTexto"),
   mentoriaForm: document.getElementById("mentoriaForm"),
-  mentoriaNome: document.getElementById("mentoriaNome")
+  mentoriaNome: document.getElementById("mentoriaNome"),
+  // Modal de pagamento
+  paymentModal: document.getElementById("paymentModal"),
+  closePaymentModal: document.getElementById("closePaymentModal"),
+  paymentServico: document.getElementById("paymentServico"),
+  paymentData: document.getElementById("paymentData"),
+  paymentHora: document.getElementById("paymentHora"),
+  paymentValorTotal: document.getElementById("paymentValorTotal"),
+  paymentValorSinal: document.getElementById("paymentValorSinal"),
+  paymentValorRestante: document.getElementById("paymentValorRestante"),
+  pixTab: document.getElementById("pixTab"),
+  cardTab: document.getElementById("cardTab"),
+  pixPayment: document.getElementById("pixPayment"),
+  cardPayment: document.getElementById("cardPayment"),
+  qrCode: document.getElementById("qrCode"),
+  pixCode: document.getElementById("pixCode"),
+  copyPixCode: document.getElementById("copyPixCode"),
+  nubankLink: document.getElementById("nubankLink"),
+  copyValor: document.getElementById("copyValor"),
+  confirmPayment: document.getElementById("confirmPayment"),
+  cancelPayment: document.getElementById("cancelPayment"),
+  paymentStatus: document.getElementById("paymentStatus")
 };
 
 function reveal() {
@@ -89,21 +142,43 @@ function slotId(dateISO, hour) {
 
 function createHourSlots(selectedDate) {
   const list = [];
+  // CORREÇÃO DEFINITIVA: Usar new Date(selectedDate) que funciona corretamente
+  // O problema não era fuso horário, mas sim o parsing explícito
   const date = new Date(selectedDate);
-  const dayOfWeek = date.getDay(); // 0 = Domingo, 6 = Sábado
-  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const dayOfWeek = date.getDay(); // 0 = Domingo, 1 = Segunda-feira, 6 = Sábado
   
-  // Define horários limite: 17:00 dias úteis, 20:00 fins de semana
-  const lastHour = isWeekend ? 20 : 17;
-  
-  // Gera horários de 1h30 em 1h30
-  for (let h = HOUR_START; h <= lastHour; h += 1.5) {
-    const hour = Math.floor(h);
-    const minutes = (h - hour) * 60;
-    list.push(`${String(hour).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`);
+  // DOMINGOS: Remover completamente a disponibilidade
+  if (dayOfWeek === 0) {
+    return []; // Retorna lista vazia para domingos (folga)
   }
   
-  return list;
+  // HORÁRIOS PADRÃO DO ESTÚDIO (fixos conforme solicitado)
+  const standardSlots = ["08:00", "09:30", "11:00", "13:30", "15:00", "16:30", "18:00", "19:30"];
+  
+  // SEGUNDAS-FEIRAS: Horário fixo de 09:30 às 17:00
+  if (dayOfWeek === 1) {
+    return standardSlots.filter(slot => {
+      const [hour, minute] = slot.split(':').map(Number);
+      const timeInMinutes = hour * 60 + minute;
+      const startTime = 9 * 60 + 30; // 09:30 = 570 minutos
+      const endTime = 17 * 60; // 17:00 = 1020 minutos
+      return timeInMinutes >= startTime && timeInMinutes <= endTime;
+    });
+  }
+  
+  // TERÇA A SÁBADO: Usar horários padrão completos
+  const isWeekend = dayOfWeek === 6; // Apenas sábado é considerado fim de semana
+  if (isWeekend) {
+    return standardSlots; // Sábados: todos os horários padrão
+  }
+  
+  // TERÇA A SEXTA: Horários até 17:00
+  return standardSlots.filter(slot => {
+    const [hour, minute] = slot.split(':').map(Number);
+    const timeInMinutes = hour * 60 + minute;
+    const endTime = 17 * 60; // 17:00 = 1020 minutos
+    return timeInMinutes <= endTime;
+  });
 }
 
 // Função de rastreamento Google Analytics
@@ -218,15 +293,36 @@ async function subscribeDay(dateISO) {
   }
 
   clearRealtimeSubscription();
-  const q = query(collection(state.db, "agendamentos"), where("dateISO", "==", dateISO));
-  state.activeUnsubscribe = onSnapshot(
-    q,
-    (snapshot) => {
+  
+  // Buscar agendamentos e horários bloqueados simultaneamente
+  const agendamentosQuery = query(collection(state.db, "agendamentos"), where("dateISO", "==", dateISO));
+  const bloqueadosQuery = query(collection(state.db, "horarios_bloqueados"), where("dateISO", "==", dateISO));
+  
+  // Listener para agendamentos
+  const agendamentosUnsubscribe = onSnapshot(
+    agendamentosQuery,
+    async (agendamentosSnapshot) => {
       const booked = [];
-      snapshot.forEach((d) => {
+      agendamentosSnapshot.forEach((d) => {
         const row = d.data();
-        if (row?.hour) booked.push(row.hour);
+        // CORREÇÃO CRÍTICA: Horários cancelados DEVEM ser liberados imediatamente
+        // Apenas status 'confirmado', 'pendente' e 'bloqueado' ocupam o horário
+        // Status 'cancelado' libera o horário para novos agendamentos
+        if (row?.hour && (row.status === 'confirmado' || row.status === 'pendente' || row.status === 'bloqueado')) {
+          booked.push(row.hour);
+        }
       });
+
+      // Buscar horários bloqueados
+      try {
+        const bloqueadosSnapshot = await getDocs(bloqueadosQuery);
+        bloqueadosSnapshot.forEach((d) => {
+          const row = d.data();
+          if (row?.hour) booked.push(row.hour);
+        });
+      } catch (error) {
+        console.error('Erro ao buscar horários bloqueados:', error);
+      }
 
       if (state.selectedSlot && booked.includes(state.selectedSlot)) {
         state.selectedSlot = "";
@@ -237,6 +333,8 @@ async function subscribeDay(dateISO) {
       setInfo("info-error", "Erro de conexão", "Não foi possível atualizar os horários em tempo real.");
     }
   );
+  
+  state.activeUnsubscribe = agendamentosUnsubscribe;
 }
 
 function localKey(dateISO) {
@@ -264,13 +362,14 @@ function localSaveBooking(booking) {
 
 function buildStudioMessage(booking) {
   return (
-    "🔔 *NOVO AGENDAMENTO CONFIRMADO* 🔔\n\n" +
+    "🔔 NOVO AGENDAMENTO PENDENTE 🔔\n\n" +
     "Cliente: " + booking.nome + "\n" +
-    "💅 *Serviço:* " + booking.servico + "\n" +
-    "*Celular:* " + booking.celular + "\n" +
-    "*Data:* " + formatDateBR(booking.dateISO) + "\n" +
-    "*Horário:* " + booking.hour + "\n" +
-    "*Status:* " + booking.status + "\n\n" +
+    "💅 Serviço: " + booking.servico + "\n" +
+    "Celular: " + booking.celular + "\n" +
+    "Data: " + formatDateBR(booking.dateISO) + "\n" +
+    "Horário: " + booking.hour + "\n" +
+    "Status: pendente\n" +
+    "Painel administrativo: Confirme agendamento em seu painel !!!\n\n" +
     "📅 Confirme no sistema e entre em contato se necessário."
   );
 }
@@ -278,14 +377,11 @@ function buildStudioMessage(booking) {
 function buildClientMessage(booking) {
   return (
     "✨Seu horário está confirmado!✨\n\n" +
-    "Agradeço imensamente pela confiança em meu trabalho.\n" +
-    "Gentilmente, peço sua compreensão quanto à tolerância de até 10 minutos para o início do atendimento. Caso haja atraso superior a esse período, infelizmente não será possível realizar a decoração desejada.\n" +
-    "É obrigatório que me envie com antecedência a decoração ou estilo escolhido. Caso não seja enviado, o procedimento será realizado sem decoração.\n" +
-    "Será um prazer recebê-la 💖.\n\n" +
-    "� *Serviço:* " + booking.servico + "\n\n" +
-    "� *Data:* " + formatDateBR(booking.dateISO) + "\n" +
-    "⏰ *Horário:* " + booking.hour + "\n" +
-    "📍 *Endereço:* Rua Olinto Magalhães, 1628, BH\n\n" +
+    "Agradeço imensamente pela confiança em meu trabalho...\n\n" +
+    "� Serviço: " + booking.servico + "\n" +
+    "📅 Data: " + formatDateBR(booking.dateISO) + "\n" +
+    "⏰ Horário: " + booking.hour + "\n" +
+    "📍 Endereço: Rua Olinto Magalhães, 1628, BH\n\n" +
     "📞 Dúvidas? (31) 99362-7475"
   );
 }
@@ -342,32 +438,57 @@ async function bookSlot(formData) {
   }
 
   const { nome, celular, dateISO, hour, servico } = formData;
-  const id = slotId(dateISO, hour);
-  const ref = doc(state.db, "agendamentos", slotId(dateISO, hour));
-    await runTransaction(state.db, async (transaction) => {
-      const docSnap = await transaction.get(ref);
-      if (docSnap.exists()) throw new Error("SLOT_ALREADY_BOOKED");
-      transaction.set(ref, {
-        nome,
-        celular,
-        servico,
-        dateISO,
-        hour,
-        status: AGENDAMENTO_STATUS.PENDENTE,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
+  
+  // VALIDAÇÃO DE SEGURANÇA - Garante que as regras sejam respeitadas
+  // CORREÇÃO DEFINITIVA: Usar new Date(dateISO) que funciona corretamente
+  const date = new Date(dateISO);
+  const dayOfWeek = date.getDay(); // 0 = Domingo, 1 = Segunda-feira, 6 = Sábado
+  
+  // DOMINGOS: Bloquear completamente
+  if (dayOfWeek === 0) {
+    throw new Error("Domingos não estão disponíveis para agendamento. Por favor, escolha outro dia.");
+  }
+  
+  // SEGUNDAS-FEIRAS: Validar horário fixo 09:30-17:00
+  if (dayOfWeek === 1) {
+    const [hourNum, minuteNum] = hour.split(':').map(Number);
+    const timeInMinutes = hourNum * 60 + minuteNum;
+    const startTime = 9 * 60 + 30; // 09:30 = 570 minutos
+    const endTime = 17 * 60; // 17:00 = 1020 minutos
+    
+    if (timeInMinutes < startTime || timeInMinutes > endTime) {
+      throw new Error("Segundas-feiras funcionam apenas das 09:30 às 17:00. Por favor, escolha um horário neste intervalo.");
+    }
+  }
+  
+  try {
+    // Salvar no Firebase
+    const docRef = await addDoc(collection(state.db, "agendamentos"), {
+      nome,
+      celular,
+      servico,
+      dateISO,
+      hour,
+      status: AGENDAMENTO_STATUS.PENDENTE,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     });
 
-  return {
-    id,
-    dateISO,
-    hour,
-    nome,
-    celular,
-    servico,
-    status: AGENDAMENTO_STATUS.PENDENTE
-  };
+    const booking = {
+      id: docRef.id,
+      nome,
+      celular,
+      servico,
+      dateISO,
+      hour,
+      status: AGENDAMENTO_STATUS.PENDENTE
+    };
+
+    return booking;
+  } catch (error) {
+    console.error('Erro ao salvar agendamento:', error);
+    throw error;
+  }
 }
 
 async function updateBookingStatus(bookingId, newStatus) {
@@ -497,6 +618,243 @@ function confirmByWhatsapp() {
   window.open(`https://api.whatsapp.com/send?phone=${STUDIO_WHATSAPP}&text=${encodeURIComponent(message)}`, "_blank", "noopener");
 }
 
+// Funções do Modal de Pagamento
+function showPaymentModal(formData) {
+  if (!el.paymentModal) return;
+  
+  const { nome, servico, dateISO, hour } = formData;
+  const valores = calcularValoresServico(servico);
+  
+  // Preencher dados do resumo
+  if (el.paymentServico) el.paymentServico.textContent = servico;
+  if (el.paymentData) el.paymentData.textContent = formatDateBR(dateISO);
+  if (el.paymentHora) el.paymentHora.textContent = hour;
+  if (el.paymentValorTotal) el.paymentValorTotal.textContent = `R$ ${valores.valorTotal.toFixed(2).replace('.', ',')}`;
+  if (el.paymentValorSinal) el.paymentValorSinal.textContent = `R$ ${valores.valorSinal.toFixed(2).replace('.', ',')}`;
+  if (el.paymentValorRestante) el.paymentValorRestante.textContent = `R$ ${valores.valorRestante.toFixed(2).replace('.', ',')}`;
+  if (el.cardPaymentAmount) el.cardPaymentAmount.textContent = valores.valorSinal.toFixed(2).replace('.', ',');
+  
+  // Limpar status anterior
+  if (el.paymentStatus) el.paymentStatus.textContent = '';
+  
+  // Resetar formulário de cartão
+  if (el.cardForm) el.cardForm.reset();
+  
+  // Resetar para aba PIX
+  switchPaymentMethod('pix');
+  
+  // Mostrar modal - usar classe active e remover atributo hidden
+  el.paymentModal.classList.remove('hidden');
+  el.paymentModal.classList.add('active');
+  el.paymentModal.removeAttribute('hidden');
+  document.body.style.overflow = 'hidden';
+  
+  // Armazenar dados para uso posterior
+  state.currentPaymentData = {
+    ...formData,
+    ...valores
+  };
+}
+
+function hidePaymentModal() {
+  if (!el.paymentModal) return;
+  
+  // Esconder modal - adicionar hidden e remover active
+  el.paymentModal.classList.add('hidden');
+  el.paymentModal.classList.remove('active');
+  el.paymentModal.setAttribute('hidden', '');
+  document.body.style.overflow = '';
+  state.currentPaymentData = null;
+}
+
+function switchPaymentMethod(method) {
+  if (!el.pixTab || !el.cardTab || !el.pixPayment || !el.cardPayment) return;
+  
+  // Atualizar abas
+  if (method === 'pix') {
+    el.pixTab.classList.add('active');
+    el.cardTab.classList.remove('active');
+    el.pixPayment.classList.add('active');
+    el.cardPayment.classList.remove('active');
+  } else {
+    el.pixTab.classList.remove('active');
+    el.cardTab.classList.add('active');
+    el.pixPayment.classList.remove('active');
+    el.cardPayment.classList.add('active');
+  }
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value);
+}
+
+function formatCardNumber(value) {
+  const cleaned = value.replace(/\s/g, '');
+  const chunks = cleaned.match(/.{1,4}/g) || [];
+  return chunks.join(' ').substr(0, 19);
+}
+
+function formatExpiry(value) {
+  const cleaned = value.replace(/\D/g, '');
+  if (cleaned.length >= 2) {
+    return cleaned.substr(0, 2) + '/' + cleaned.substr(2, 2);
+  }
+  return cleaned;
+}
+
+function formatCPF(value) {
+  const cleaned = value.replace(/\D/g, '');
+  if (cleaned.length <= 11) {
+    if (cleaned.length <= 3) return cleaned;
+    if (cleaned.length <= 6) return cleaned.substr(0, 3) + '.' + cleaned.substr(3);
+    if (cleaned.length <= 9) return cleaned.substr(0, 3) + '.' + cleaned.substr(3, 3) + '.' + cleaned.substr(6);
+    return cleaned.substr(0, 3) + '.' + cleaned.substr(3, 3) + '.' + cleaned.substr(6, 3) + '-' + cleaned.substr(9);
+  }
+  return value;
+}
+
+
+async function copyPixCode() {
+  if (!el.pixCode) return;
+  
+  try {
+    await navigator.clipboard.writeText(el.pixCode.value);
+    
+    const originalText = el.copyPixCode.textContent;
+    el.copyPixCode.textContent = '✅ Copiado!';
+    el.copyPixCode.style.background = '#28a745';
+    
+    setTimeout(() => {
+      el.copyPixCode.textContent = originalText;
+      el.copyPixCode.style.background = '';
+    }, 2000);
+    
+    if (el.paymentStatus) {
+      el.paymentStatus.innerHTML = '<span style="color: #28a745;">✅ Chave PIX copiada! Faça o pagamento e clique em "Já realizei o pagamento".</span>';
+    }
+    
+  } catch (error) {
+    console.error('Erro ao copiar código:', error);
+    if (el.paymentStatus) {
+      el.paymentStatus.innerHTML = '<span style="color: #dc3545;">❌ Erro ao copiar código</span>';
+    }
+  }
+}
+
+async function copyValor() {
+  if (!state.currentPaymentData || !el.cardPaymentAmount) return;
+  
+  try {
+    const valor = state.currentPaymentData.valorSinal.toFixed(2).replace('.', ',');
+    await navigator.clipboard.writeText(valor);
+    
+    const originalText = el.copyValor.textContent;
+    el.copyValor.textContent = '✅ Copiado!';
+    el.copyValor.style.background = '#28a745';
+    
+    setTimeout(() => {
+      el.copyValor.textContent = originalText;
+      el.copyValor.style.background = '';
+    }, 2000);
+    
+    if (el.paymentStatus) {
+      el.paymentStatus.innerHTML = '<span style="color: #28a745;">✅ Valor copiado! Cole no app Nubank.</span>';
+    }
+    
+  } catch (error) {
+    console.error('Erro ao copiar valor:', error);
+  }
+}
+
+function openNubankLink() {
+  if (!el.nubankLink) return;
+  
+  window.open('https://nubank.com.br/cobrar/bhbovw/69deb79a-18c2-44e8-a352-564777505328', '_blank');
+  
+  if (el.paymentStatus) {
+    el.paymentStatus.innerHTML = '<span style="color: #ffc107;">📱 Link Nubank aberto! Faça o pagamento e volte aqui para confirmar.</span>';
+  }
+}
+
+async function processCardPayment(cardData) {
+  if (!state.currentPaymentData) return;
+  
+  try {
+    // Simulação de processamento - na implementação real, integrar com API de pagamento
+    if (el.paymentStatus) {
+      el.paymentStatus.innerHTML = '<span style="color: #ffc107;">⏳ Processando pagamento...</span>';
+    }
+    
+    // Simular delay de processamento
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Simular sucesso
+    return {
+      success: true,
+      paymentId: 'card_' + Date.now(),
+      method: 'cartao'
+    };
+    
+  } catch (error) {
+    console.error('Erro no processamento:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+
+async function bookSlotWithPayment(formData) {
+  if (!state.firebaseReady || !state.db) {
+    throw new Error("Firebase não está pronto. Por favor, recarregue a página.");
+  }
+
+  const { nome, celular, servico, dateISO, hour, valorTotal, valorSinal, valorRestante, pagamentoId, metodoPagamento, statusFinanceiro } = formData;
+  const id = slotId(dateISO, hour);
+  const ref = doc(state.db, "agendamentos", slotId(dateISO, hour));
+  
+  await runTransaction(state.db, async (transaction) => {
+    const docSnap = await transaction.get(ref);
+    if (docSnap.exists()) throw new Error("SLOT_ALREADY_BOOKED");
+    transaction.set(ref, {
+      nome,
+      celular,
+      servico,
+      dateISO,
+      hour,
+      status: AGENDAMENTO_STATUS.CONFIRMADO, // Confirmado automaticamente após pagamento
+      statusFinanceiro,
+      valorTotal,
+      valorSinal,
+      valorRestante,
+      pagamentoId,
+      metodoPagamento,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  });
+
+  return {
+    id,
+    dateISO,
+    hour,
+    nome,
+    celular,
+    servico,
+    status: AGENDAMENTO_STATUS.CONFIRMADO,
+    statusFinanceiro,
+    valorTotal,
+    valorSinal,
+    valorRestante,
+    pagamentoId,
+    metodoPagamento
+  };
+}
+
 async function refreshInitialSlots(dateISO) {
   // Força uso do Firebase - sem fallback para localStorage
   if (!state.firebaseReady || !state.db) {
@@ -509,7 +867,12 @@ async function refreshInitialSlots(dateISO) {
   const booked = [];
   snapshot.forEach((d) => {
     const row = d.data();
-    if (row?.hour) booked.push(row.hour);
+    // CORREÇÃO CRÍTICA: Horários cancelados DEVEM ser liberados imediatamente
+    // Apenas status 'confirmado', 'pendente' e 'bloqueado' ocupam o horário
+    // Status 'cancelado' libera o horário para novos agendamentos
+    if (row?.hour && (row.status === 'confirmado' || row.status === 'pendente' || row.status === 'bloqueado')) {
+      booked.push(row.hour);
+    }
   });
   renderSlots(booked);
 }
@@ -523,7 +886,21 @@ function initSchedulerEvents() {
   renderSlots([]);
 
   el.dataAgendamento.addEventListener("change", async () => {
-    state.selectedDate = el.dataAgendamento.value;
+    const selectedDate = el.dataAgendamento.value;
+    
+    // VALIDAÇÃO DE DOMINGOS: Bloquear seleção de domingos
+    if (selectedDate) {
+      const date = new Date(selectedDate);
+      const dayOfWeek = date.getDay(); // 0 = Domingo
+      
+      if (dayOfWeek === 0) {
+        setInfo("info-error", "Domingo não disponível", "O estúdio não funciona aos domingos. Por favor, selecione outro dia.");
+        el.dataAgendamento.value = state.selectedDate || todayStr();
+        return;
+      }
+    }
+    
+    state.selectedDate = selectedDate;
     state.selectedSlot = "";
     if (state.firebaseReady) {
       await refreshInitialSlots(state.selectedDate);
@@ -555,38 +932,10 @@ function initSchedulerEvents() {
       el.btnConfirmarSlot.innerHTML = '<span class="loading-spinner"></span> Agendando...';
       
       try {
-        const booking = await bookSlot({ nome, celular, servico, dateISO, hour });
-        
-        // Rastreia evento de agendamento bem-sucedido
-        trackEvent('agendamento_concluido', {
-          event_category: 'conversion',
-          event_label: 'formulario_agendamento',
-          value: 1
-        });
-        
-        // Aguarda confirmação do salvamento antes de redirecionar para WhatsApp
-        await notifyWebhook(booking);
+        // Mostrar modal de pagamento em vez de confirmar diretamente
+        showPaymentModal({ nome, celular, servico, dateISO, hour });
         
         el.btnConfirmarSlot.innerHTML = 'Confirmar agendamento';
-        
-        // Mensagem de sucesso
-        setInfo(
-          "info-ok",
-          "Agendamento confirmado!",
-          `Reserva criada para ${formatDateBR(dateISO)} às ${hour}. Redirecionando para WhatsApp...`
-        );
-        
-        // Limpa formulário
-        el.nome.value = "";
-        el.celular.value = "";
-        el.servico.value = "";
-        
-        // Envia notificações após salvar com sucesso
-        await sendNotifications(booking);
-        
-        // Habilita botão de WhatsApp manual
-        enableWhatsButton(booking);
-        state.selectedSlot = "";
         
       } catch (error) {
         throw error; // Propaga erro para o catch externo
@@ -620,6 +969,49 @@ function initSchedulerEvents() {
   if (el.btnCancelarAgendamento) {
     el.btnCancelarAgendamento.addEventListener("click", cancelCurrentBooking);
   }
+
+  // Event listeners do modal de pagamento
+  if (el.closePaymentModal) {
+    el.closePaymentModal.addEventListener("click", hidePaymentModal);
+  }
+  
+  if (el.cancelPayment) {
+    el.cancelPayment.addEventListener("click", hidePaymentModal);
+  }
+  
+  if (el.pixTab) {
+    el.pixTab.addEventListener("click", () => switchPaymentMethod('pix'));
+  }
+  
+  if (el.cardTab) {
+    el.cardTab.addEventListener("click", () => switchPaymentMethod('cartao'));
+  }
+  
+  if (el.copyPixCode) {
+    el.copyPixCode.addEventListener("click", copyPixCode);
+  }
+  
+  if (el.nubankLink) {
+    el.nubankLink.addEventListener("click", openNubankLink);
+  }
+  
+  if (el.copyValor) {
+    el.copyValor.addEventListener("click", copyValor);
+  }
+  
+  if (el.confirmPayment) {
+    el.confirmPayment.addEventListener("click", confirmarPagamentoComSinal);
+  }
+  
+    
+  // Fechar modal ao clicar fora
+  if (el.paymentModal) {
+    el.paymentModal.addEventListener("click", (e) => {
+      if (e.target === el.paymentModal) {
+        hidePaymentModal();
+      }
+    });
+  }
 }
 
 function initMentoria() {
@@ -633,7 +1025,288 @@ function initMentoria() {
   });
 }
 
+// Garantir que o modal comece oculto
+function ensureModalHidden() {
+  if (el.paymentModal) {
+    // Forçar estado oculto com múltiplas camadas de proteção
+    el.paymentModal.classList.add('hidden');
+    el.paymentModal.classList.remove('active');
+    el.paymentModal.setAttribute('hidden', '');
+    document.body.style.overflow = '';
+  }
+}
+
+async function confirmarPagamentoComSinal() {
+  if (!state.currentPaymentData) return;
+  
+  try {
+    const { nome, celular, servico, dateISO, hour, valorTotal, valorSinal, valorRestante } = state.currentPaymentData;
+    
+    // Determinar método de pagamento baseado na aba ativa
+    const metodoPagamento = el.pixPayment.classList.contains('active') ? 'pix' : 'nubank';
+    
+    // Salvar agendamento com status pago (trigger automático)
+    const booking = await bookSlotWithPayment({ 
+      nome, 
+      celular, 
+      servico, 
+      dateISO, 
+      hour, 
+      valorTotal, 
+      valorSinal, 
+      valorRestante,
+      pagamentoId: 'manual_' + Date.now(),
+      metodoPagamento,
+      statusFinanceiro: STATUS_FINANCEIRO.PAGO, // Status pago automaticamente
+      status: AGENDAMENTO_STATUS.CONFIRMADO // Status confirmado automaticamente
+    });
+    
+    // Fechar modal
+    hidePaymentModal();
+    
+    // Rastrear evento
+    trackEvent('pagamento_confirmado', {
+      event_category: 'conversion',
+      event_label: 'sinal_agendamento',
+      value: valorSinal
+    });
+    
+    // Mostrar sucesso
+    setInfo(
+      "info-ok",
+      "Pagamento confirmado!",
+      `Pagamento de R$ ${valorSinal.toFixed(2).replace('.', ',')} confirmado com sucesso! Agendamento confirmado para ${formatDateBR(dateISO)} às ${hour}.`
+    );
+    
+    // Limpar formulário
+    el.nome.value = "";
+    el.celular.value = "";
+    el.servico.value = "";
+    state.selectedSlot = "";
+    
+    // Enviar notificação apenas para a dona do site
+    await sendNotificationsComPagamento(booking, valorSinal, metodoPagamento);
+    
+    // Habilitar botão WhatsApp para cliente (será usado no painel admin)
+    enableWhatsButton(booking);
+    
+  } catch (error) {
+    console.error('Erro ao confirmar pagamento:', error);
+    if (el.paymentStatus) {
+      el.paymentStatus.innerHTML = '<span style="color: #dc3545;">❌ Erro ao confirmar pagamento</span>';
+    }
+  }
+}
+
+async function sendNotificationsComPagamento(booking, valorSinal, metodoPagamento) {
+  try {
+    // Verificar se já foi notificado
+    if (booking.notificado === true) {
+      console.log('✅ Agendamento já notificado anteriormente');
+      return;
+    }
+    
+    // Notificação para Stephanie com informação do pagamento
+    const stephanieMessage = buildStephanieMessageWithPayment(booking, valorSinal, metodoPagamento);
+    
+    // Redirecionar cliente direto para WhatsApp da Stephanie
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${STUDIO_WHATSAPP}&text=${encodeURIComponent(stephanieMessage)}`;
+    
+    // Tentar abrir em nova aba, com fallback para redirecionamento direto
+    try {
+      window.open(whatsappUrl, "_blank", "noopener");
+      
+      // Marcar como notificado com sucesso
+      await marcarComoNotificado(booking.id);
+      console.log('✅ Notificação enviada e marcada como entregue');
+      
+    } catch (popupError) {
+      console.log('window.open bloqueado, usando fallback para redirecionamento direto');
+      // Fallback para bloqueadores de popup
+      window.location.href = whatsappUrl;
+      
+      // Marcar como notificado mesmo com fallback
+      setTimeout(async () => {
+        await marcarComoNotificado(booking.id);
+        console.log('✅ Notificação enviada via fallback e marcada como entregue');
+      }, 2000);
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao enviar notificação:', error);
+    
+    // Tentar reenvio automático após 5 segundos
+    setTimeout(async () => {
+      try {
+        console.log('🔄 Tentando reenvio automático...');
+        const fallbackUrl = `https://api.whatsapp.com/send?phone=${STUDIO_WHATSAPP}&text=${encodeURIComponent('Olá! Realizei o pagamento do meu agendamento.')}`;
+        window.location.href = fallbackUrl;
+        
+        await marcarComoNotificado(booking.id);
+        console.log('✅ Reenvio automático realizado');
+      } catch (retryError) {
+        console.error('❌ Erro no reenvio automático:', retryError);
+        alert('Erro ao enviar notificação. Por favor, contate a Stephanie diretamente.');
+      }
+    }, 5000);
+  }
+}
+
+// Marcar agendamento como notificado
+async function marcarComoNotificado(bookingId) {
+  try {
+    if (!bookingId || !state.db) return;
+    
+    const bookingRef = doc(state.db, "agendamentos", bookingId);
+    await updateDoc(bookingRef, {
+      notificado: true,
+      dataNotificacao: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log(`📝 Agendamento ${bookingId} marcado como notificado`);
+  } catch (error) {
+    console.error('Erro ao marcar como notificado:', error);
+  }
+}
+
+// Verificar notificações pendentes (para recuperação)
+window.verificarNotificacoesPendentes = async function() {
+  try {
+    console.log('🔍 Verificando notificações pendentes...');
+    
+    const q = query(
+      collection(state.db, "agendamentos"),
+      where("notificado", "!=", true),
+      where("statusFinanceiro", "==", "pago"),
+      orderBy("createdAt", "desc")
+    );
+    
+    const snapshot = await getDocs(q);
+    const pendentes = [];
+    
+    snapshot.forEach((doc) => {
+      const booking = doc.data();
+      pendentes.push({
+        id: doc.id,
+        ...booking
+      });
+    });
+    
+    if (pendentes.length > 0) {
+      console.log(`📋 Encontrados ${pendentes.length} agendamentos com notificação pendente`);
+      
+      // Tentar reenviar notificações pendentes
+      for (const pendente of pendentes) {
+        try {
+          await sendNotificationsComPagamento(pendente, pendente.valorSinal || 0, pendente.metodoPagamento || 'pix');
+          console.log(`🔄 Reenviando notificação para: ${pendente.nome}`);
+        } catch (error) {
+          console.error(`❌ Erro ao reenviar para ${pendente.nome}:`, error);
+        }
+      }
+    } else {
+      console.log('✅ Nenhuma notificação pendente encontrada');
+    }
+    
+  } catch (error) {
+    console.error('Erro ao verificar notificações pendentes:', error);
+  }
+};
+
+function buildStephanieMessageWithPayment(booking, valorSinal, metodoPagamento) {
+  const metodo = metodoPagamento === 'pix' ? 'PIX' : 'Nubank';
+  return `Olá! Um novo agendamento foi solicitado por ${booking.nome}.
+  
+📱 Celular: ${booking.celular}
+💅 Serviço: ${booking.servico}
+📅 Data: ${formatDateBR(booking.dateISO)}
+⏰ Horário: ${booking.hour}
+💰 Valor do Sinal: R$ ${valorSinal.toFixed(2).replace('.', ',')}
+💳 Método: ${metodo}
+
+Acesse o painel para confirmar o sinal e enviar a confirmação oficial.`;
+}
+
+function buildClientMessageWithPayment(booking, valorSinal, metodoPagamento) {
+  // Essa função não é mais utilizada
+  return `Olá ${booking.nome}! ✅
+
+Seu agendamento foi registrado com sucesso!
+
+📅 Data: ${formatDateBR(booking.dateISO)}
+⏰ Horário: ${booking.hour}
+💅 Serviço: ${booking.servico}
+💰 Sinal pago: R$ ${valorSinal.toFixed(2).replace('.', ',')}
+💳 Método: ${metodo}
+
+Aguarde a confirmação do pagamento para finalizar seu agendamento. Em breve entraremos em contato!
+
+Studio Stephanie Sena 🌟`;
+}
+
+async function finalizarProcessoCompleto(paymentResult) {
+  if (!state.currentPaymentData) return;
+  
+  try {
+    const { nome, celular, servico, dateISO, hour, valorTotal, valorSinal, valorRestante } = state.currentPaymentData;
+    
+    // Salvar agendamento com status financeiro
+    const booking = await bookSlotWithPayment({ 
+      nome, 
+      celular, 
+      servico, 
+      dateISO, 
+      hour, 
+      valorTotal, 
+      valorSinal, 
+      valorRestante,
+      pagamentoId: paymentResult.paymentId,
+      metodoPagamento: paymentResult.method,
+      statusFinanceiro: STATUS_FINANCEIRO.PAGO
+    });
+    
+    // Fechar modal
+    hidePaymentModal();
+    
+    // Rastrear evento de pagamento
+    trackEvent('pagamento_concluido', {
+      event_category: 'conversion',
+      event_label: 'sinal_agendamento',
+      value: valorSinal
+    });
+    
+    // Mostrar sucesso
+    setInfo(
+      "info-ok",
+      "Pagamento confirmado!",
+      `Sinal de R$ ${valorSinal.toFixed(2).replace('.', ',')} pago com sucesso. Agendamento confirmado para ${formatDateBR(dateISO)} às ${hour}.`
+    );
+    
+    // Limpar formulário
+    el.nome.value = "";
+    el.celular.value = "";
+    el.servico.value = "";
+    state.selectedSlot = "";
+    
+    // Enviar notificações APÓS o pagamento
+    await sendNotifications(booking);
+    
+    // Habilitar botão WhatsApp
+    enableWhatsButton(booking);
+    
+  } catch (error) {
+    console.error('Erro ao finalizar agendamento:', error);
+    if (el.paymentStatus) {
+      el.paymentStatus.innerHTML = '<span style="color: #dc3545;">❌ Erro ao confirmar agendamento</span>';
+    }
+  }
+}
+
 async function boot() {
+  // PRIMEIRO: Garantir que o modal esteja absolutamente oculto
+  ensureModalHidden();
+  
   window.addEventListener("scroll", reveal);
   reveal();
 

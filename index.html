@@ -209,15 +209,12 @@
               <span>Serviço desejado</span>
               <select id="servico" name="servico" required>
                 <option value="">Selecione um serviço</option>
+                <option value="Alongamento em gel">Alongamento em gel - R$ 140,00</option>
                 <option value="Manutenção até 15 dias">Manutenção até 15 dias - R$ 65,00</option>
                 <option value="Manutenção mais de 25 dias">Manutenção mais de 25 dias - R$ 85,00</option>
-                <option value="Manutenção + cutilagem + esmaltação em gel">Manutenção + cutilagem + esmaltação em gel - R$ 105,00</option>
-                <option value="Blindagem em Gel">Blindagem em Gel - R$ 50,00</option>
-                <option value="Banho de Gel">Banho de Gel - R$ 100,00</option>
-                <option value="Esmaltação em Gel">Esmaltação em Gel - R$ 35,00</option>
-                <option value="Alongamento">Alongamento - R$ 140,00</option>
-                <option value="Encapsulada">Encapsulada - Valores Adicionais</option>
-                <option value="Babyboomer">Babyboomer - Valores Adicionais</option>
+                <option value="Blindagem">Blindagem - R$ 50,00</option>
+                <option value="Banho em gel">Banho em gel - R$ 100,00</option>
+                <option value="Esmaltação em gel">Esmaltação em gel - R$ 35,00</option>
               </select>
             </label>
 
@@ -353,6 +350,120 @@
     </div>
   </footer>
 
+  <!-- Modal de Pagamento -->
+  <div id="paymentModal" class="payment-modal hidden" hidden>
+    <div class="payment-modal-content">
+      <div class="payment-header">
+        <h2>💳 Confirmar Pagamento do Sinal</h2>
+        <button id="closePaymentModal" class="close-btn">&times;</button>
+      </div>
+      
+      <div class="payment-body">
+        <div class="payment-summary">
+          <h3>Resumo do Agendamento</h3>
+          <div class="summary-item">
+            <span>Serviço:</span>
+            <span id="paymentServico"></span>
+          </div>
+          <div class="summary-item">
+            <span>Data:</span>
+            <span id="paymentData"></span>
+          </div>
+          <div class="summary-item">
+            <span>Horário:</span>
+            <span id="paymentHora"></span>
+          </div>
+          <div class="summary-divider"></div>
+          <div class="summary-item total">
+            <span>Valor Total:</span>
+            <span id="paymentValorTotal"></span>
+          </div>
+          <div class="summary-item sinal">
+            <span>Sinal (30%):</span>
+            <span id="paymentValorSinal" class="highlight"></span>
+          </div>
+          <div class="summary-item">
+            <span>Restante:</span>
+            <span id="paymentValorRestante"></span>
+          </div>
+        </div>
+
+        <div class="payment-methods">
+          <h3>Forma de Pagamento</h3>
+          <div class="method-tabs">
+            <button id="pixTab" class="method-tab active" data-method="pix">
+              <span>📱</span> PIX
+            </button>
+            <button id="cardTab" class="method-tab" data-method="card">
+              <span>💳</span> Cartão de Crédito
+            </button>
+          </div>
+
+          <!-- PIX Payment -->
+          <div id="pixPayment" class="payment-method active">
+            <div class="pix-content">
+              <div class="qr-code-container">
+                <div id="qrCode" class="qr-code">
+                  <div class="qr-placeholder">
+                    <span>📱</span>
+                    <p>Chave PIX</p>
+                    <p style="font-size: 1.2rem; font-weight: bold; color: var(--dourado);">153.419.406-10</p>
+                  </div>
+                </div>
+              </div>
+              <div class="pix-copy">
+                <p>Chave PIX (CPF):</p>
+                <div class="copy-container">
+                  <input type="text" id="pixCode" readonly value="153.419.406-10">
+                  <button id="copyPixCode" class="btn-copy">📋 Copiar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Payment -->
+          <div id="cardPayment" class="payment-method">
+            <div class="card-content">
+              <div class="nubank-instructions">
+                <h4>💳 Pagamento via Nubank</h4>
+                <div class="valor-destaque">
+                  <span class="valor-label">Valor do Sinal (30%):</span>
+                  <div class="valor-container">
+                    <span id="cardPaymentAmount" class="valor-valor">R$ 0,00</span>
+                    <button id="copyValor" class="btn-copy-small">📋 Copiar</button>
+                  </div>
+                </div>
+                <div class="aviso-nubank">
+                  <p>⚠️ Ao abrir o link, você precisará digitar este valor manualmente no app do Nubank.</p>
+                </div>
+                <button id="nubankLink" class="btn-gold btn-full" target="_blank">
+                  <span class="btn-text">📱 Abrir Nubank para Pagar</span>
+                  <span class="loading-spinner hidden"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="payment-footer">
+        <button id="cancelPayment" class="btn-cancel">Cancelar</button>
+        <button id="confirmPayment" class="btn-gold">✅ Já realizei o pagamento, confirmar agendamento</button>
+        <div class="payment-status" id="paymentStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Garantir estado oculto imediato - antes de qualquer carregamento
+    (function() {
+      var modal = document.getElementById('paymentModal');
+      if (modal) {
+        modal.style.display = 'none !important';
+        modal.setAttribute('hidden', '');
+      }
+    })();
+  </script>
   <script type="module" src="app.js?v=2"></script>
 </body>
 </html>
