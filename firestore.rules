@@ -3,18 +3,15 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Regras para a coleção agendamentos
     match /agendamentos/{agendamentoId} {
-      // Permitir leitura pública (para ver horários disponíveis)
+      // Permitir leitura pública
       allow read: if true;
       
-      // Permitir criação se o documento não existe
-      allow create: if !exists(/databases/$(database)/documents/agendamentos/$(agendamentoId));
+      // Permitir criação
+      allow create: if true;
       
-      // Permitir atualização apenas do status e updatedAt
+      // Permitir atualização do status
       allow update: if 
-        request.resource.data.keys().hasAll(['status', 'updatedAt']) &&
-        request.resource.data.keys().size() == 2 &&
-        request.resource.data.status in ['pendente', 'confirmado', 'cancelado'] &&
-        request.resource.data.updatedAt == request.time;
+        request.resource.data.status in ['pendente', 'confirmado', 'cancelado'];
       
       // Permitir delete apenas para limpeza automática
       allow delete: if false;

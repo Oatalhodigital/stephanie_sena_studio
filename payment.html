@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagamento - Studio Stephanie Sena</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: var(--font-family);
+            background: linear-gradient(135deg, var(--dourado), #b8860b);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .payment-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        
+        .payment-header {
+            background: linear-gradient(135deg, var(--dourado), #b8860b);
+            color: var(--preto);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .payment-header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        .payment-summary {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .payment-summary h3 {
+            margin: 0 0 15px 0;
+            color: var(--preto);
+            font-size: 1.2rem;
+        }
+        
+        .payment-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+        
+        .payment-row.total {
+            font-weight: bold;
+            font-size: 1.2rem;
+            border-top: 2px solid var(--dourado);
+            padding-top: 10px;
+            margin-top: 15px;
+        }
+        
+        .payment-row.signal {
+            color: #059669;
+            font-weight: bold;
+        }
+        
+        .qr-section {
+            margin: 30px 0;
+        }
+        
+        .qr-section h3 {
+            margin-bottom: 20px;
+            color: var(--preto);
+        }
+        
+        .qr-code {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid var(--dourado);
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+        
+        .qr-code img {
+            width: 200px;
+            height: 200px;
+        }
+        
+        .pix-key {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            word-break: break-all;
+        }
+        
+        .copy-btn {
+            background: var(--dourado);
+            color: var(--preto);
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+        
+        .copy-btn:hover {
+            background: #b8860b;
+            transform: translateY(-2px);
+        }
+        
+        .copy-btn.copied {
+            background: #059669;
+            color: white;
+        }
+        
+        .payment-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: var(--dourado);
+            color: var(--preto);
+        }
+        
+        .btn-primary:hover {
+            background: #b8860b;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+            transform: translateY(-2px);
+        }
+        
+        .instructions {
+            background: #fef3c7;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        
+        .instructions h4 {
+            margin: 0 0 10px 0;
+            color: #92400e;
+        }
+        
+        .instructions ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="payment-container">
+        <div class="payment-header">
+            <h1>💳 Pagar Sinal (30%)</h1>
+        </div>
+        
+        <div class="payment-summary">
+            <h3>Resumo do Pagamento</h3>
+            <div class="payment-row">
+                <span>Serviço:</span>
+                <span id="service">-</span>
+            </div>
+            <div class="payment-row">
+                <span>Valor Total:</span>
+                <span id="total">-</span>
+            </div>
+            <div class="payment-row signal">
+                <span>Sinal (30%):</span>
+                <span id="signal">-</span>
+            </div>
+            <div class="payment-row">
+                <span>Saldo no Estúdio:</span>
+                <span id="remaining">-</span>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h4>📋 Instruções:</h4>
+            <ol>
+                <li>Escaneie o QR Code ou copie a chave Pix</li>
+                <li>Abra o aplicativo do seu banco</li>
+                <li>Faça o pagamento do valor do sinal</li>
+                <li>Guarde o comprovante</li>
+                <li>Clique em "Já Paguei" para confirmar</li>
+            </ol>
+        </div>
+        
+        <div class="qr-section">
+            <h3>📱 QR Code Pix</h3>
+            <div class="qr-code">
+                <img id="qrCode" src="" alt="QR Code Pix">
+            </div>
+            
+            <div class="pix-key">
+                <strong>Chave Pix:</strong><br>
+                <code id="pixKey">-</code>
+            </div>
+            
+            <button class="copy-btn" onclick="copyPixKey()">📋 Copiar Chave Pix</button>
+        </div>
+        
+        <div class="payment-actions">
+            <button class="btn btn-secondary" onclick="window.close()">❌ Cancelar</button>
+            <button class="btn btn-primary" onclick="confirmPayment()">✅ Já Paguei</button>
+        </div>
+    </div>
+
+    <script>
+        // Obter parâmetros da URL
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Preencher dados do pagamento
+        document.getElementById('service').textContent = urlParams.get('service') || '-';
+        document.getElementById('total').textContent = 'R$ ' + (parseFloat(urlParams.get('total') || 0)).toFixed(2);
+        document.getElementById('signal').textContent = 'R$ ' + (parseFloat(urlParams.get('signal') || 0)).toFixed(2);
+        document.getElementById('remaining').textContent = 'R$ ' + (parseFloat(urlParams.get('remaining') || 0)).toFixed(2);
+        document.getElementById('pixKey').textContent = urlParams.get('pixKey') || '-';
+        
+        // Gerar QR Code
+        const pixPayload = urlParams.get('pixPayload');
+        if (pixPayload) {
+            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pixPayload)}`;
+            document.getElementById('qrCode').src = qrCodeUrl;
+        }
+        
+        // Função para copiar chave Pix
+        function copyPixKey() {
+            const pixKey = document.getElementById('pixKey').textContent;
+            navigator.clipboard.writeText(pixKey).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copiado!';
+                btn.classList.add('copied');
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                alert('Não foi possível copiar. Copie manualmente: ' + pixKey);
+            });
+        }
+        
+        // Função para confirmar pagamento
+        function confirmPayment() {
+            // Enviar mensagem para a janela principal
+            if (window.opener) {
+                window.opener.postMessage({
+                    type: 'payment_confirmed',
+                    service: urlParams.get('service'),
+                    signal: parseFloat(urlParams.get('signal') || 0),
+                    remaining: parseFloat(urlParams.get('remaining') || 0)
+                }, '*');
+            }
+            
+            alert('Pagamento confirmado! Esta janela será fechada.');
+            window.close();
+        }
+        
+        // Auto-fechar após 5 minutos (timeout de pagamento)
+        setTimeout(() => {
+            alert('Tempo esgotado! Por favor, inicie o processo novamente.');
+            window.close();
+        }, 5 * 60 * 1000);
+    </script>
+</body>
+</html>
