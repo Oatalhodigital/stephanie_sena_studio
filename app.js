@@ -304,7 +304,7 @@ async function subscribeDay(dateISO) {
           }
         });
 
-        // Buscar horários bloqueados
+        // Buscar horários bloqueados (opcional - não bloqueia o funcionamento se falhar)
         try {
           const bloqueadosSnapshot = await getDocs(bloqueadosQuery);
           bloqueadosSnapshot.forEach((d) => {
@@ -312,7 +312,9 @@ async function subscribeDay(dateISO) {
             if (row?.hour) booked.push(row.hour);
           });
         } catch (error) {
-          console.error('Erro ao buscar horários bloqueados:', error);
+          // Silenciar erro de permissão - a coleção pode não existir ou não ter regras configuradas
+          // O site continua funcionando normalmente sem horários bloqueados
+          console.log('Horários bloqueados não disponíveis (coleção pode não existir)');
         }
 
         if (state.selectedSlot && booked.includes(state.selectedSlot)) {
