@@ -9,12 +9,28 @@ service cloud.firestore {
       // Permitir criação
       allow create: if true;
       
-      // Permitir atualização do status
+      // Permitir atualização do status e campos relacionados
       allow update: if 
-        request.resource.data.status in ['pendente', 'confirmado', 'cancelado'];
+        request.resource.data.status in ['pendente', 'confirmado', 'cancelado', 'bloqueado'] &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'statusFinanceiro', 'updatedAt', 'arquivado']);
       
-      // Permitir delete apenas para limpeza automática
-      allow delete: if false;
+      // Permitir delete para limpeza automática e cancelamentos
+      allow delete: if true;
+    }
+    
+    // Regras para a coleção horarios_bloqueados
+    match /horarios_bloqueados/{bloqueioId} {
+      // Permitir leitura pública para clientes verem horários bloqueados
+      allow read: if true;
+      
+      // Permitir criação (apenas para admin - pode ser refinado com auth)
+      allow create: if true;
+      
+      // Permitir atualização
+      allow update: if true;
+      
+      // Permitir delete
+      allow delete: if true;
     }
   }
 }

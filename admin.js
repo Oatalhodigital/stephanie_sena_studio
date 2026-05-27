@@ -611,6 +611,9 @@ window.arquivarAgendamentosAntigos = window.arquivarAgendamentosAntigos;
 
 // Listener em tempo real para atualizações instantâneas
 let realtimeListener = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+let reconnectTimeout = null;
 
 // Carregar agendamentos com listener em tempo real
 async function loadBookings() {
@@ -619,6 +622,10 @@ async function loadBookings() {
     if (realtimeListener) {
       realtimeListener();
       realtimeListener = null;
+    }
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
     }
     
     // Primeiro, arquivar agendamentos antigos (apenas uma vez)
@@ -630,9 +637,12 @@ async function loadBookings() {
       orderBy("dateISO", "asc")
     );
     
-    // Listener em tempo real
+    // Listener em tempo real com tratamento de erro robusto
     realtimeListener = onSnapshot(q, (snapshot) => {
       console.log('🔄 Atualização em tempo real recebida:', snapshot.docs.length, 'documentos');
+      
+      // Resetar contador de reconexão em caso de sucesso
+      reconnectAttempts = 0;
       
       allBookings = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -648,12 +658,37 @@ async function loadBookings() {
       
       if (novosAgendamentos.length > 0) {
         console.log(`📋 ${novosAgendamentos.length} novo(s) agendamento(s) recebido(s)`);
-        // Opcional: mostrar notificação visual
         showNotification(`${novosAgendamentos.length} novo(s) agendamento(s) recebido(s)`);
       }
+      
+      // Detectar cancelamentos e mostrar notificação
+      const cancelamentos = snapshot.docChanges().filter(change => 
+        change.type === 'modified' && change.doc.data().status === 'cancelado'
+      );
+      
+      if (cancelamentos.length > 0) {
+        console.log(`❌ ${cancelamentos.length} agendamento(s) cancelado(s)`);
+        showNotification(`${cancelamentos.length} agendamento(s) cancelado(s) - horário liberado no site`);
+      }
+      
     }, (error) => {
       console.error('❌ Erro no listener em tempo real:', error);
       bookingsList.innerHTML = '<p style="color: red;">Erro na conexão em tempo real</p>';
+      
+      // TENTATIVA DE RECONEXÃO AUTOMÁTICA
+      if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Exponential backoff até 30s
+        console.log(`🔄 Tentando reconexão automática (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}) em ${delay}ms...`);
+        
+        reconnectTimeout = setTimeout(() => {
+          console.log('🔄 Executando reconexão...');
+          loadBookings();
+        }, delay);
+      } else {
+        console.error('❌ Máximo de tentativas de reconexão atingido. Por favor, recarregue a página.');
+        bookingsList.innerHTML = '<p style="color: red;">Erro persistente na conexão. Por favor, recarregue a página.</p>';
+      }
     });
     
   } catch (error) {
@@ -662,6 +697,17 @@ async function loadBookings() {
   }
 }
 window.loadBookings = window.loadBookings;
+
+window.addEventListener('beforeunload', () => {
+  if (realtimeListener) {
+    realtimeListener();
+    realtimeListener = null;
+  }
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+    reconnectTimeout = null;
+  }
+});
 
 // Função para mostrar notificações visuais
 function showNotification(message) {
@@ -980,12 +1026,20 @@ window.cancelarAgendamentoAdmin = async function(bookingId) {
       return;
     }
 
-    // Atualizar status no Firebase
     const ref = doc(db, "agendamentos", bookingId);
+    const bookingSnap = await getDoc(ref);
+    const bookingData = bookingSnap.exists() ? bookingSnap.data() : null;
+
+    // Atualizar status no Firebase
     await updateDoc(ref, {
       status: 'cancelado',
       updatedAt: serverTimestamp()
     });
+
+    // Reativar slot no site removendo bloqueios administrativos deste horario (se houver)
+    if (bookingData?.dateISO && bookingData?.hour) {
+      await liberarHorarioBloqueado(bookingData.dateISO, bookingData.hour);
+    }
 
     // Disparar mensagem de cancelamento usando função unificada
     await enviarMensagemStatus(bookingId, 'cancelar');
@@ -1202,11 +1256,17 @@ window.cancelarAgendamento = async function(bookingId) {
     }
 
     const ref = doc(db, "agendamentos", bookingId);
+    const bookingSnap = await getDoc(ref);
+    const bookingData = bookingSnap.exists() ? bookingSnap.data() : null;
     await updateDoc(ref, {
       status: 'cancelado',
       devolucaoPendente: true,
       updatedAt: serverTimestamp()
     });
+
+    if (bookingData?.dateISO && bookingData?.hour) {
+      await liberarHorarioBloqueado(bookingData.dateISO, bookingData.hour);
+    }
 
     // Recarregar lista
     await loadBookings();
@@ -1220,6 +1280,22 @@ window.cancelarAgendamento = async function(bookingId) {
   }
 };
 window.cancelarAgendamento = window.cancelarAgendamento;
+
+async function liberarHorarioBloqueado(dateISO, hour) {
+  try {
+    const q = query(
+      collection(db, "horarios_bloqueados"),
+      where("dateISO", "==", dateISO),
+      where("hour", "==", hour)
+    );
+    const snap = await getDocs(q);
+    const deletes = [];
+    snap.forEach((d) => deletes.push(deleteDoc(doc(db, "horarios_bloqueados", d.id))));
+    await Promise.all(deletes);
+  } catch (error) {
+    console.error("Erro ao liberar horario bloqueado:", error);
+  }
+}
 
 // Marcar como reembolsado
 window.marcarComoReembolsado = async function(bookingId) {

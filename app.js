@@ -64,6 +64,7 @@ const state = {
   selectedDate: "",
   selectedSlot: "",
   activeUnsubscribe: null,
+  reconnectTimer: null,
   selectedBooking: null
 };
 
@@ -92,14 +93,10 @@ const el = {
   paymentValorSinal: document.getElementById("paymentValorSinal"),
   paymentValorRestante: document.getElementById("paymentValorRestante"),
   pixTab: document.getElementById("pixTab"),
-  cardTab: document.getElementById("cardTab"),
   pixPayment: document.getElementById("pixPayment"),
-  cardPayment: document.getElementById("cardPayment"),
   qrCode: document.getElementById("qrCode"),
   pixCode: document.getElementById("pixCode"),
   copyPixCode: document.getElementById("copyPixCode"),
-  nubankLink: document.getElementById("nubankLink"),
-  copyValor: document.getElementById("copyValor"),
   confirmPayment: document.getElementById("confirmPayment"),
   cancelPayment: document.getElementById("cancelPayment"),
   paymentStatus: document.getElementById("paymentStatus")
@@ -131,6 +128,12 @@ function todayStr() {
   return d.toISOString().split("T")[0];
 }
 
+function tomorrowStr() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split("T")[0];
+}
+
 function formatDateBR(isoDate) {
   const [y, m, d] = isoDate.split("-");
   return `${d}/${m}/${y}`;
@@ -141,44 +144,27 @@ function slotId(dateISO, hour) {
 }
 
 function createHourSlots(selectedDate) {
-  const list = [];
-  // CORREÇÃO DEFINITIVA: Usar new Date(selectedDate) que funciona corretamente
-  // O problema não era fuso horário, mas sim o parsing explícito
-  const date = new Date(selectedDate);
-  const dayOfWeek = date.getDay(); // 0 = Domingo, 1 = Segunda-feira, 6 = Sábado
+  // CORREÇÃO DEFINITIVA: Usar new Date(selectedDate + 'T00:00:00') para evitar problemas de fuso horário
+  // Isso garante que o dia da semana seja interpretado corretamente no fuso local
+  const date = new Date(selectedDate + 'T00:00:00');
+  const dayOfWeek = date.getDay(); // 0 = Domingo, 1 = Segunda, 2 = Terça, 3 = Quarta, 4 = Quinta, 5 = Sexta, 6 = Sábado
   
-  // DOMINGOS: Remover completamente a disponibilidade
-  if (dayOfWeek === 0) {
-    return []; // Retorna lista vazia para domingos (folga)
-  }
+  // MATRIZ DE HORÁRIOS POR DIA DA SEMANA (conforme especificado)
+  // BLOQUEIO DE SEGUNDAS-FEIRAS: Removido completamente (folga da profissional)
+  // REMOÇÃO DE HORÁRIO DE ALMOÇO (12:30): Removido de Terça a Sábado
+  const weeklySchedule = {
+    0: [], // Domingo: Nenhum horário disponível (folga)
+    1: [], // Segunda: Nenhum horário disponível (folga da profissional)
+    2: ["08:00", "09:30", "11:00", "14:00", "15:30", "17:00"], // Terça (sem 12:30 - almoço)
+    3: ["08:00", "09:30", "11:00", "14:00", "15:30", "17:00"], // Quarta (sem 12:30 - almoço)
+    4: ["08:00", "09:30", "11:00", "14:00", "15:30", "17:00"], // Quinta (sem 12:30 - almoço)
+    5: ["08:00", "09:30", "11:00", "14:00", "15:30", "17:00", "18:30"], // Sexta (sem 12:30 - almoço)
+    6: ["08:00", "09:30", "11:00", "14:00", "15:30", "17:00", "18:30"]  // Sábado (sem 12:30 - almoço)
+  };
   
-  // HORÁRIOS PADRÃO DO ESTÚDIO (fixos conforme solicitado)
-  const standardSlots = ["08:00", "09:30", "11:00", "13:30", "15:00", "16:30", "18:00", "19:30"];
-  
-  // SEGUNDAS-FEIRAS: Horário fixo de 09:30 às 17:00
-  if (dayOfWeek === 1) {
-    return standardSlots.filter(slot => {
-      const [hour, minute] = slot.split(':').map(Number);
-      const timeInMinutes = hour * 60 + minute;
-      const startTime = 9 * 60 + 30; // 09:30 = 570 minutos
-      const endTime = 17 * 60; // 17:00 = 1020 minutos
-      return timeInMinutes >= startTime && timeInMinutes <= endTime;
-    });
-  }
-  
-  // TERÇA A SÁBADO: Usar horários padrão completos
-  const isWeekend = dayOfWeek === 6; // Apenas sábado é considerado fim de semana
-  if (isWeekend) {
-    return standardSlots; // Sábados: todos os horários padrão
-  }
-  
-  // TERÇA A SEXTA: Horários até 17:00
-  return standardSlots.filter(slot => {
-    const [hour, minute] = slot.split(':').map(Number);
-    const timeInMinutes = hour * 60 + minute;
-    const endTime = 17 * 60; // 17:00 = 1020 minutos
-    return timeInMinutes <= endTime;
-  });
+  // Retorna os horários para o dia da semana específico
+  // Os horários já estão em ordem cronológica crescente no array
+  return weeklySchedule[dayOfWeek] || [];
 }
 
 // Função de rastreamento Google Analytics
@@ -224,23 +210,22 @@ async function getFirebaseConfig() {
 }
 
 async function initFirebase() {
-  // Força uso do Firebase - sem fallback para local
-  const firebaseConfig = {
-    apiKey: "AIzaSyA_6I9MmZ_B6hb0QwqewYyciDIpdAAK9D0",
-    authDomain: "studio-stephanie-sena.firebaseapp.com",
-    projectId: "studio-stephanie-sena",
-    storageBucket: "studio-stephanie-sena.firebasestorage.app",
-    messagingSenderId: "697438120393",
-    appId: "1:697438120393:web:b586bef9902f767684e018",
-    measurementId: "G-T2XMTXZ81M"
-  };
+  try {
+    const firebaseConfig = await getFirebaseConfig();
+    if (!firebaseConfig) {
+      throw new Error("Configuração do Firebase não encontrada");
+    }
 
-  const app = initializeApp(firebaseConfig);
-  state.db = getFirestore(app);
-  state.firebaseReady = true;
-  state.mode = "firebase";
-  disableScheduler(false);
-  setInfo("info-ok", "Sistema online", "Agendamento em tempo real ativo. Escolha data e horário para reservar.");
+    const app = initializeApp(firebaseConfig);
+    state.db = getFirestore(app);
+    state.firebaseReady = true;
+    state.mode = "firebase";
+    disableScheduler(false);
+    setInfo("info-ok", "Sistema online", "Agendamento em tempo real ativo. Escolha data e horário para reservar.");
+  } catch (error) {
+    console.error('Erro ao inicializar Firebase:', error);
+    setInfo("info-error", "Erro de conexão", "Não foi possível conectar ao Firebase. Tente recarregar a página.");
+  }
 }
 
 function disableScheduler(disabled) {
@@ -280,6 +265,10 @@ function clearRealtimeSubscription() {
     state.activeUnsubscribe();
     state.activeUnsubscribe = null;
   }
+  if (state.reconnectTimer) {
+    clearTimeout(state.reconnectTimer);
+    state.reconnectTimer = null;
+  }
 }
 
 async function subscribeDay(dateISO) {
@@ -292,45 +281,60 @@ async function subscribeDay(dateISO) {
     return;
   }
 
+  // LIMPEZA DE LISTENERS ANTERIORES - Prevenção de memory leak
   clearRealtimeSubscription();
   
   // Buscar agendamentos e horários bloqueados simultaneamente
   const agendamentosQuery = query(collection(state.db, "agendamentos"), where("dateISO", "==", dateISO));
   const bloqueadosQuery = query(collection(state.db, "horarios_bloqueados"), where("dateISO", "==", dateISO));
   
-  // Listener para agendamentos
+  // Listener para agendamentos com tratamento de erro robusto
   const agendamentosUnsubscribe = onSnapshot(
     agendamentosQuery,
     async (agendamentosSnapshot) => {
-      const booked = [];
-      agendamentosSnapshot.forEach((d) => {
-        const row = d.data();
-        // CORREÇÃO CRÍTICA: Horários cancelados DEVEM ser liberados imediatamente
-        // Apenas status 'confirmado', 'pendente' e 'bloqueado' ocupam o horário
-        // Status 'cancelado' libera o horário para novos agendamentos
-        if (row?.hour && (row.status === 'confirmado' || row.status === 'pendente' || row.status === 'bloqueado')) {
-          booked.push(row.hour);
-        }
-      });
-
-      // Buscar horários bloqueados
       try {
-        const bloqueadosSnapshot = await getDocs(bloqueadosQuery);
-        bloqueadosSnapshot.forEach((d) => {
+        const booked = [];
+        agendamentosSnapshot.forEach((d) => {
           const row = d.data();
-          if (row?.hour) booked.push(row.hour);
+          // CORREÇÃO CRÍTICA: Horários cancelados DEVEM ser liberados imediatamente
+          // Apenas status 'confirmado', 'pendente' e 'bloqueado' ocupam o horário
+          // Status 'cancelado' libera o horário para novos agendamentos
+          if (row?.hour && (row.status === 'confirmado' || row.status === 'pendente' || row.status === 'bloqueado')) {
+            booked.push(row.hour);
+          }
         });
-      } catch (error) {
-        console.error('Erro ao buscar horários bloqueados:', error);
-      }
 
-      if (state.selectedSlot && booked.includes(state.selectedSlot)) {
-        state.selectedSlot = "";
+        // Buscar horários bloqueados
+        try {
+          const bloqueadosSnapshot = await getDocs(bloqueadosQuery);
+          bloqueadosSnapshot.forEach((d) => {
+            const row = d.data();
+            if (row?.hour) booked.push(row.hour);
+          });
+        } catch (error) {
+          console.error('Erro ao buscar horários bloqueados:', error);
+        }
+
+        if (state.selectedSlot && booked.includes(state.selectedSlot)) {
+          state.selectedSlot = "";
+        }
+        renderSlots(booked);
+      } catch (error) {
+        console.error('Erro ao processar snapshot:', error);
+        setInfo("info-error", "Erro de sincronização", "Erro ao atualizar horários. Tente recarregar a página.");
       }
-      renderSlots(booked);
     },
-    () => {
-      setInfo("info-error", "Erro de conexão", "Não foi possível atualizar os horários em tempo real.");
+    (error) => {
+      console.error('Erro no listener em tempo real:', error);
+      setInfo("info-error", "Erro de conexão", "Não foi possível atualizar os horários em tempo real. Verifique sua conexão.");
+      // TENTATIVA DE RECONEXÃO AUTOMÁTICA após 5 segundos
+      if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
+      state.reconnectTimer = setTimeout(() => {
+        if (state.firebaseReady && state.selectedDate) {
+          console.log('Tentando reconexão automática...');
+          subscribeDay(state.selectedDate);
+        }
+      }, 5000);
     }
   );
   
@@ -440,8 +444,8 @@ async function bookSlot(formData) {
   const { nome, celular, dateISO, hour, servico } = formData;
   
   // VALIDAÇÃO DE SEGURANÇA - Garante que as regras sejam respeitadas
-  // CORREÇÃO DEFINITIVA: Usar new Date(dateISO) que funciona corretamente
-  const date = new Date(dateISO);
+  // Sempre interpretar no fuso local para evitar inconsistências
+  const date = new Date(dateISO + 'T00:00:00');
   const dayOfWeek = date.getDay(); // 0 = Domingo, 1 = Segunda-feira, 6 = Sábado
   
   // DOMINGOS: Bloquear completamente
@@ -449,16 +453,9 @@ async function bookSlot(formData) {
     throw new Error("Domingos não estão disponíveis para agendamento. Por favor, escolha outro dia.");
   }
   
-  // SEGUNDAS-FEIRAS: Validar horário fixo 09:30-17:00
+  // SEGUNDAS-FEIRAS: Bloquear completamente (folga da profissional)
   if (dayOfWeek === 1) {
-    const [hourNum, minuteNum] = hour.split(':').map(Number);
-    const timeInMinutes = hourNum * 60 + minuteNum;
-    const startTime = 9 * 60 + 30; // 09:30 = 570 minutos
-    const endTime = 17 * 60; // 17:00 = 1020 minutos
-    
-    if (timeInMinutes < startTime || timeInMinutes > endTime) {
-      throw new Error("Segundas-feiras funcionam apenas das 09:30 às 17:00. Por favor, escolha um horário neste intervalo.");
-    }
+    throw new Error("Segundas-feiras não estão disponíveis para agendamento (folga da profissional). Por favor, escolha outro dia.");
   }
   
   try {
@@ -563,7 +560,10 @@ function handleSlotsClick(event) {
 
 async function ensureNoPastDate(dateISO) {
   if (!dateISO) throw new Error("DATA_OBRIGATORIA");
-  if (dateISO < todayStr()) throw new Error("DATA_INVALIDA");
+  if (dateISO <= todayStr()) throw new Error("DATA_INVALIDA");
+  const selected = new Date(dateISO + 'T00:00:00');
+  const day = selected.getDay();
+  if (day === 0 || day === 1) throw new Error("DIA_NAO_DISPONIVEL");
 }
 
 function enableWhatsButton(booking) {
@@ -632,13 +632,8 @@ function showPaymentModal(formData) {
   if (el.paymentValorTotal) el.paymentValorTotal.textContent = `R$ ${valores.valorTotal.toFixed(2).replace('.', ',')}`;
   if (el.paymentValorSinal) el.paymentValorSinal.textContent = `R$ ${valores.valorSinal.toFixed(2).replace('.', ',')}`;
   if (el.paymentValorRestante) el.paymentValorRestante.textContent = `R$ ${valores.valorRestante.toFixed(2).replace('.', ',')}`;
-  if (el.cardPaymentAmount) el.cardPaymentAmount.textContent = valores.valorSinal.toFixed(2).replace('.', ',');
-  
   // Limpar status anterior
   if (el.paymentStatus) el.paymentStatus.textContent = '';
-  
-  // Resetar formulário de cartão
-  if (el.cardForm) el.cardForm.reset();
   
   // Resetar para aba PIX
   switchPaymentMethod('pix');
@@ -668,20 +663,9 @@ function hidePaymentModal() {
 }
 
 function switchPaymentMethod(method) {
-  if (!el.pixTab || !el.cardTab || !el.pixPayment || !el.cardPayment) return;
-  
-  // Atualizar abas
-  if (method === 'pix') {
-    el.pixTab.classList.add('active');
-    el.cardTab.classList.remove('active');
-    el.pixPayment.classList.add('active');
-    el.cardPayment.classList.remove('active');
-  } else {
-    el.pixTab.classList.remove('active');
-    el.cardTab.classList.add('active');
-    el.pixPayment.classList.remove('active');
-    el.cardPayment.classList.add('active');
-  }
+  if (method !== 'pix') return;
+  if (el.pixTab) el.pixTab.classList.add('active');
+  if (el.pixPayment) el.pixPayment.classList.add('active');
 }
 
 function formatCurrency(value) {
@@ -690,32 +674,6 @@ function formatCurrency(value) {
     currency: 'BRL'
   }).format(value);
 }
-
-function formatCardNumber(value) {
-  const cleaned = value.replace(/\s/g, '');
-  const chunks = cleaned.match(/.{1,4}/g) || [];
-  return chunks.join(' ').substr(0, 19);
-}
-
-function formatExpiry(value) {
-  const cleaned = value.replace(/\D/g, '');
-  if (cleaned.length >= 2) {
-    return cleaned.substr(0, 2) + '/' + cleaned.substr(2, 2);
-  }
-  return cleaned;
-}
-
-function formatCPF(value) {
-  const cleaned = value.replace(/\D/g, '');
-  if (cleaned.length <= 11) {
-    if (cleaned.length <= 3) return cleaned;
-    if (cleaned.length <= 6) return cleaned.substr(0, 3) + '.' + cleaned.substr(3);
-    if (cleaned.length <= 9) return cleaned.substr(0, 3) + '.' + cleaned.substr(3, 3) + '.' + cleaned.substr(6);
-    return cleaned.substr(0, 3) + '.' + cleaned.substr(3, 3) + '.' + cleaned.substr(6, 3) + '-' + cleaned.substr(9);
-  }
-  return value;
-}
-
 
 async function copyPixCode() {
   if (!el.pixCode) return;
@@ -727,86 +685,31 @@ async function copyPixCode() {
     el.copyPixCode.textContent = '✅ Copiado!';
     el.copyPixCode.style.background = '#28a745';
     
+    // Mostrar instruções para envio do comprovante
+    if (el.paymentStatus) {
+      el.paymentStatus.innerHTML = '<span style="color: #28a745;">✅ Chave PIX copiada! Faça o pagamento no seu banco e depois clique em "Já realizei o pagamento, confirmar agendamento".</span>';
+    }
+    
+    // Mostrar instruções de WhatsApp se existirem
+    const whatsappInstructions = document.getElementById('whatsappInstructions');
+    if (whatsappInstructions) {
+      whatsappInstructions.style.display = 'block';
+      whatsappInstructions.style.color = '#28a745';
+      whatsappInstructions.style.fontWeight = 'bold';
+    }
+    
     setTimeout(() => {
       el.copyPixCode.textContent = originalText;
       el.copyPixCode.style.background = '';
     }, 2000);
     
-    if (el.paymentStatus) {
-      el.paymentStatus.innerHTML = '<span style="color: #28a745;">✅ Chave PIX copiada! Faça o pagamento e clique em "Já realizei o pagamento".</span>';
-    }
-    
   } catch (error) {
     console.error('Erro ao copiar código:', error);
     if (el.paymentStatus) {
-      el.paymentStatus.innerHTML = '<span style="color: #dc3545;">❌ Erro ao copiar código</span>';
+      el.paymentStatus.innerHTML = '<span style="color: #dc3545;">❌ Erro ao copiar código. Copie manualmente: 153.419.406-10 e depois confirme o pagamento.</span>';
     }
   }
 }
-
-async function copyValor() {
-  if (!state.currentPaymentData || !el.cardPaymentAmount) return;
-  
-  try {
-    const valor = state.currentPaymentData.valorSinal.toFixed(2).replace('.', ',');
-    await navigator.clipboard.writeText(valor);
-    
-    const originalText = el.copyValor.textContent;
-    el.copyValor.textContent = '✅ Copiado!';
-    el.copyValor.style.background = '#28a745';
-    
-    setTimeout(() => {
-      el.copyValor.textContent = originalText;
-      el.copyValor.style.background = '';
-    }, 2000);
-    
-    if (el.paymentStatus) {
-      el.paymentStatus.innerHTML = '<span style="color: #28a745;">✅ Valor copiado! Cole no app Nubank.</span>';
-    }
-    
-  } catch (error) {
-    console.error('Erro ao copiar valor:', error);
-  }
-}
-
-function openNubankLink() {
-  if (!el.nubankLink) return;
-  
-  window.open('https://nubank.com.br/cobrar/bhbovw/69deb79a-18c2-44e8-a352-564777505328', '_blank');
-  
-  if (el.paymentStatus) {
-    el.paymentStatus.innerHTML = '<span style="color: #ffc107;">📱 Link Nubank aberto! Faça o pagamento e volte aqui para confirmar.</span>';
-  }
-}
-
-async function processCardPayment(cardData) {
-  if (!state.currentPaymentData) return;
-  
-  try {
-    // Simulação de processamento - na implementação real, integrar com API de pagamento
-    if (el.paymentStatus) {
-      el.paymentStatus.innerHTML = '<span style="color: #ffc107;">⏳ Processando pagamento...</span>';
-    }
-    
-    // Simular delay de processamento
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Simular sucesso
-    return {
-      success: true,
-      paymentId: 'card_' + Date.now(),
-      method: 'cartao'
-    };
-    
-  } catch (error) {
-    console.error('Erro no processamento:', error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
 
 async function bookSlotWithPayment(formData) {
   if (!state.firebaseReady || !state.db) {
@@ -880,8 +783,8 @@ async function refreshInitialSlots(dateISO) {
 function initSchedulerEvents() {
   if (!el.dataAgendamento || !el.leadForm || !el.slotsGrid) return;
 
-  el.dataAgendamento.min = todayStr();
-  el.dataAgendamento.value = todayStr();
+  el.dataAgendamento.min = tomorrowStr();
+  el.dataAgendamento.value = tomorrowStr();
   state.selectedDate = el.dataAgendamento.value;
   renderSlots([]);
 
@@ -890,12 +793,18 @@ function initSchedulerEvents() {
     
     // VALIDAÇÃO DE DOMINGOS: Bloquear seleção de domingos
     if (selectedDate) {
-      const date = new Date(selectedDate);
+      const date = new Date(selectedDate + 'T00:00:00');
       const dayOfWeek = date.getDay(); // 0 = Domingo
       
-      if (dayOfWeek === 0) {
-        setInfo("info-error", "Domingo não disponível", "O estúdio não funciona aos domingos. Por favor, selecione outro dia.");
-        el.dataAgendamento.value = state.selectedDate || todayStr();
+      if (dayOfWeek === 0 || dayOfWeek === 1) {
+        setInfo("info-error", "Dia indisponível", "Domingos e segundas-feiras não estão disponíveis para agendamento.");
+        el.dataAgendamento.value = state.selectedDate || tomorrowStr();
+        return;
+      }
+
+      if (selectedDate <= todayStr()) {
+        setInfo("info-error", "Data indisponível", "Agendamentos são permitidos apenas a partir de amanhã (D+1).");
+        el.dataAgendamento.value = state.selectedDate || tomorrowStr();
         return;
       }
     }
@@ -948,7 +857,9 @@ function initSchedulerEvents() {
       } else if (error.message === "CELULAR_INVALIDO") {
         setInfo("info-error", "Celular inválido", "Digite um número de celular válido com DDD.");
       } else if (error.message === "DATA_INVALIDA") {
-        setInfo("info-error", "Data inválida", "Selecione uma data de hoje em diante.");
+        setInfo("info-error", "Data inválida", "Selecione uma data a partir de amanhã (D+1).");
+      } else if (error.message === "DIA_NAO_DISPONIVEL") {
+        setInfo("info-error", "Dia indisponível", "Domingos e segundas-feiras são dias de folga.");
       } else if (error.message === "SERVICO_OBRIGATORIO") {
         setInfo("info-error", "Serviço obrigatório", "Selecione o serviço desejado para continuar.");
       } else if (error.message === "HORA_OBRIGATORIA") {
@@ -983,20 +894,8 @@ function initSchedulerEvents() {
     el.pixTab.addEventListener("click", () => switchPaymentMethod('pix'));
   }
   
-  if (el.cardTab) {
-    el.cardTab.addEventListener("click", () => switchPaymentMethod('cartao'));
-  }
-  
   if (el.copyPixCode) {
     el.copyPixCode.addEventListener("click", copyPixCode);
-  }
-  
-  if (el.nubankLink) {
-    el.nubankLink.addEventListener("click", openNubankLink);
-  }
-  
-  if (el.copyValor) {
-    el.copyValor.addEventListener("click", copyValor);
   }
   
   if (el.confirmPayment) {
@@ -1043,7 +942,7 @@ async function confirmarPagamentoComSinal() {
     const { nome, celular, servico, dateISO, hour, valorTotal, valorSinal, valorRestante } = state.currentPaymentData;
     
     // Determinar método de pagamento baseado na aba ativa
-    const metodoPagamento = el.pixPayment.classList.contains('active') ? 'pix' : 'nubank';
+    const metodoPagamento = 'pix';
     
     // Salvar agendamento com status pago (trigger automático)
     const booking = await bookSlotWithPayment({ 
@@ -1314,7 +1213,7 @@ async function boot() {
   initSchedulerEvents();
   await initFirebase();
 
-  state.selectedDate = el.dataAgendamento.value || todayStr();
+  state.selectedDate = el.dataAgendamento.value || tomorrowStr();
   await refreshInitialSlots(state.selectedDate);
   await subscribeDay(state.selectedDate);
   if (state.mode === "firebase") {
@@ -1324,4 +1223,51 @@ async function boot() {
   }
 }
 
+// Lightbox para Catálogo de Serviços
+document.addEventListener('DOMContentLoaded', function() {
+  const lightboxModal = document.getElementById('lightboxModal');
+  const lightboxImage = document.getElementById('lightboxImage');
+  const closeLightbox = document.getElementById('closeLightbox');
+  const catalogoImages = document.querySelectorAll('.catalogo-img-lightbox');
+
+  // Abrir lightbox ao clicar em imagem do catálogo
+  catalogoImages.forEach(img => {
+    img.addEventListener('click', function() {
+      lightboxImage.src = this.src;
+      lightboxModal.classList.remove('hidden');
+      lightboxModal.removeAttribute('hidden');
+      document.body.classList.add('no-scroll');
+    });
+  });
+
+  // Fechar lightbox
+  closeLightbox.addEventListener('click', function() {
+    lightboxModal.classList.add('hidden');
+    lightboxModal.setAttribute('hidden', '');
+    document.body.classList.remove('no-scroll');
+  });
+
+  // Fechar lightbox ao clicar fora da imagem
+  lightboxModal.addEventListener('click', function(e) {
+    if (e.target === lightboxModal) {
+      lightboxModal.classList.add('hidden');
+      lightboxModal.setAttribute('hidden', '');
+      document.body.classList.remove('no-scroll');
+    }
+  });
+
+  // Fechar lightbox com ESC
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && !lightboxModal.classList.contains('hidden')) {
+      lightboxModal.classList.add('hidden');
+      lightboxModal.setAttribute('hidden', '');
+      document.body.classList.remove('no-scroll');
+    }
+  });
+});
+
 boot();
+
+window.addEventListener('beforeunload', () => {
+  clearRealtimeSubscription();
+});

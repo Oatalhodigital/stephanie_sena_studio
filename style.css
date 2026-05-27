@@ -43,31 +43,186 @@ a{color:inherit}
   to{transform:rotate(360deg)}
 }
 
-/* Catálogo de Serviços */
-.catalogo-container{
-  margin-top:1rem;
+/* Catálogo de Serviços - Replicando layout da Apostila (scroll automático hover) */
+.catalogo-box{
+  padding:18px;
+  border-radius:16px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.10);
 }
-.catalogo-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-  gap:1rem;
-  margin-bottom:1rem;
-}
-.catalogo-item{
-  border-radius:12px;
+.catalogo-box h3{color:#fff;margin-bottom:6px}
+.catalogo-placeholder{
+  margin-top:12px;
+  height:340px;
+  border-radius:14px;
   overflow:hidden;
-  box-shadow:0 4px12px rgba(0,0,0,.08);
+  border:1px solid rgba(212,175,55,.28);
+  background:#0f0f10;
+  position:relative;
+}
+.catalogo-placeholder::after{
+  content:"Passe o mouse para rolar as páginas / arraste para o lado";
+  position:absolute;
+  left:12px;
+  right:12px;
+  bottom:10px;
+  padding:8px 10px;
+  border-radius:8px;
+  font-size:.78rem;
+  color:#111;
+  background:rgba(212,175,55,.9);
+  font-weight:700;
+  pointer-events:none;
+  z-index:10;
+}
+.catalogo-strip{
+  display:flex;
+  gap:8px;
+  padding:10px;
+  transform:translateX(0);
+  transition:transform 8s linear;
+  white-space:nowrap;
+}
+.catalogo-placeholder:hover .catalogo-strip{
+  transform:translateX(calc(-100% + 340px));
+}
+.catalogo-strip img{
+  width:140px;
+  height:200px;
+  object-fit:cover;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,.12);
+  cursor:pointer;
   transition:transform 0.3s ease, box-shadow 0.3s ease;
+  flex-shrink:0;
 }
-.catalogo-item:hover{
-  transform:translateY(-4px);
-  box-shadow:0 8px24px rgba(0,0,0,.12);
+.catalogo-strip img:hover{
+  transform:scale(1.08);
+  box-shadow:0 12px 32px rgba(212,175,55,.4);
+  border-color:rgba(212,175,55,.6);
 }
-.catalogo-item img{
+
+/* Lightbox Modal */
+.lightbox-modal{
+  position:fixed;
+  top:0;
+  left:0;
   width:100%;
   height:100%;
-  object-fit:cover;
-  display:block;
+  background:rgba(0,0,0,.9);
+  z-index:10000;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:2rem;
+}
+.lightbox-modal.hidden{
+  display:none;
+}
+.lightbox-content{
+  position:relative;
+  max-width:90%;
+  max-height:90%;
+}
+.lightbox-content img{
+  max-width:100%;
+  max-height:90vh;
+  object-fit:contain;
+  border-radius:12px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+}
+.lightbox-close{
+  position:absolute;
+  top:-40px;
+  right:0;
+  background:var(--branco);
+  border:none;
+  width:40px;
+  height:40px;
+  border-radius:50%;
+  font-size:24px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:background 0.3s ease;
+}
+.lightbox-close:hover{
+  background:var(--dourado);
+  color:var(--branco);
+}
+
+/* Footer do Site */
+.site-footer{
+  background:#111;
+  color:var(--branco);
+  padding:3rem 0 2rem;
+  margin-top:4rem;
+  border-top:2px solid var(--dourado);
+}
+.footer-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:2rem;
+  margin-bottom:2rem;
+}
+.footer-brand{
+  display:flex;
+  flex-direction:column;
+  gap:1rem;
+}
+.footer-logo{
+  font-family:'Playfair Display',serif;
+  font-size:1.8rem;
+  font-weight:700;
+  letter-spacing:2px;
+  color:var(--branco);
+}
+.footer-logo .logo-gold{
+  color:var(--dourado);
+  font-weight:800;
+  text-shadow:0 2px 4px rgba(212,175,55,.3);
+}
+.footer-col{
+  display:flex;
+  flex-direction:column;
+  gap:0.8rem;
+}
+.footer-title{
+  font-size:1.1rem;
+  font-weight:600;
+  color:var(--dourado);
+  margin-bottom:0.5rem;
+}
+.footer-col a{
+  color:rgba(255,255,255,.8);
+  text-decoration:none;
+  transition:color 0.3s ease;
+}
+.footer-col a:hover{
+  color:var(--dourado);
+}
+.footer-line{
+  color:rgba(255,255,255,.6);
+  margin-top:0.5rem;
+}
+.footer-bottom{
+  border-top:1px solid rgba(255,255,255,.1);
+  padding-top:2rem;
+  text-align:center;
+}
+.footer-thanks{
+  display:flex;
+  flex-direction:column;
+  gap:0.5rem;
+  margin-bottom:1rem;
+}
+.footer-thanks strong{
+  color:var(--dourado);
+}
+.footer-copy{
+  color:rgba(255,255,255,.5);
+  font-size:0.9rem;
 }
 
 /* Header / Nav */
@@ -312,10 +467,10 @@ a{color:inherit}
 /* Agendamento */
 .secao-agendamento{padding:86px 0;background:#fff}
 .agendamento-grid{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:18px;
-  align-items:start;
+  display:flex;
+  flex-direction:column;
+  gap:24px;
+  align-items:stretch;
 }
 .agendamento-card{
   background:#fff;
@@ -323,6 +478,14 @@ a{color:inherit}
   border:1px solid #eef0f3;
   box-shadow:0 18px 50px rgba(0,0,0,.06);
   padding:26px;
+  width:100%;
+}
+.agendamento-card:not(.servicos-card){
+  border:2px solid rgba(212,175,55,.3);
+  box-shadow:0 20px 60px rgba(212,175,55,.15);
+  padding:32px;
+  max-width:800px;
+  margin:0 auto;
 }
 .agendamento-card h2{
   font-family:'Playfair Display',serif;
@@ -1002,6 +1165,26 @@ a{color:inherit}
     font-size: 0.8rem;
     padding: 10px 15px;
   }
+  
+  /* Agendamento Grid - Já está em coluna, manter consistência */
+  .agendamento-grid {
+    gap:20px;
+  }
+  
+  .agendamento-card:not(.servicos-card) {
+    padding:24px;
+    max-width:100%;
+  }
+  
+  /* Catálogo - Ajustar tamanho no mobile */
+  .catalogo-placeholder {
+    height:280px;
+  }
+  
+  .catalogo-strip img {
+    width:120px;
+    height:170px;
+  }
 }
 
 @keyframes slideUp {
@@ -1354,5 +1537,284 @@ a{color:inherit}
   .qr-code {
     width: 150px;
     height: 150px;
+  }
+}
+
+/* Responsividade Global - Prevenir overflow-x */
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+* {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsividade do Site Principal */
+@media (max-width: 768px) {
+  .container {
+    width: 95%;
+    padding: 0 10px;
+  }
+  
+  .hero-container {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    text-align: center;
+  }
+  
+  .hero-img img {
+    width: 280px;
+    height: 280px;
+    margin: 0 auto;
+  }
+  
+  .hero-text h1 {
+    font-size: 2rem;
+  }
+  
+  .hero-ctas {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .about-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .portfolio-gallery-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .portfolio-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .portfolio-card:nth-child(1),
+  .portfolio-card:nth-child(2),
+  .portfolio-card:nth-child(3),
+  .portfolio-card:nth-child(4) {
+    grid-column: span 1;
+  }
+  
+  .agendamento-grid {
+    gap: 20px;
+  }
+  
+  .agendamento-card:not(.servicos-card) {
+    padding: 24px;
+    max-width: 100%;
+  }
+  
+  .slots-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .mentoria-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .mentoria-banner img {
+    min-height: 400px;
+  }
+  
+  .footer-grid {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+  
+  .site-header {
+    flex-direction: column;
+    gap: 15px;
+    padding: 15px;
+  }
+  
+  .nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+  }
+  
+  .nav a {
+    margin-left: 0;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .portfolio-gallery-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .slots-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  
+  .slot-btn {
+    padding: 8px 4px;
+    font-size: 0.85rem;
+  }
+  
+  .catalogo-placeholder {
+    height: 240px;
+  }
+  
+  .catalogo-strip img {
+    width: 100px;
+    height: 140px;
+  }
+  
+  .apostila-placeholder {
+    height: 240px;
+  }
+  
+  .apostila-strip img {
+    height: 100px;
+  }
+}
+
+/* Responsividade do Painel Administrativo */
+@media (max-width: 768px) {
+  .admin-container {
+    padding: 10px;
+  }
+  
+  .admin-header {
+    padding: 15px;
+    margin-bottom: 20px;
+  }
+  
+  .booking-card {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .filter-btn {
+    flex: 1;
+    min-width: 120px;
+    font-size: 0.9rem;
+    padding: 8px 12px;
+  }
+  
+  .action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .btn-action {
+    width: 100%;
+    padding: 12px;
+    font-size: 0.9rem;
+  }
+  
+  .booking-info {
+    grid-template-columns: 1fr;
+  }
+  
+  .financeiro-values {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .filter-buttons {
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .filter-btn {
+    width: 100%;
+    min-width: auto;
+    font-size: 0.9rem;
+    padding: 10px 16px;
+  }
+  
+  .calendar-view {
+    padding: 15px;
+  }
+  
+  .calendar-view h2 {
+    font-size: 1.2rem;
+  }
+}
+
+/* ===== Overrides de refatoracao (site principal) ===== */
+#btnConfirmarWhats {
+  display: none !important;
+}
+
+.agendamento-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+  gap: 24px;
+}
+
+.servicos-card,
+.agendamento-card {
+  min-height: 640px;
+}
+
+.catalogo-placeholder {
+  height: 330px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.catalogo-strip {
+  min-width: max-content;
+  align-items: stretch;
+}
+
+.catalogo-strip img {
+  max-height: 300px;
+  width: auto;
+  object-fit: cover;
+}
+
+.apostila-placeholder {
+  max-height: 420px;
+  overflow: auto;
+}
+
+.apostila-strip,
+.apostila-placeholder:hover .apostila-strip {
+  transform: none !important;
+  transition: none !important;
+}
+
+@media (max-width: 900px) {
+  .agendamento-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .servicos-card,
+  .agendamento-card {
+    min-height: auto;
+  }
+
+  .mentoria-grid {
+    grid-template-columns: 1fr !important;
+    gap: 18px;
+  }
+
+  .mentoria-banner img {
+    min-height: 360px;
+    max-height: 460px;
+    object-fit: cover;
+  }
+
+  .apostila-placeholder {
+    max-height: 320px;
   }
 }
