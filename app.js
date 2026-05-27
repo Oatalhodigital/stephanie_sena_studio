@@ -804,7 +804,8 @@ function initSchedulerEvents() {
 
       if (selectedDate <= todayStr()) {
         setInfo("info-error", "Data indisponível", "Agendamentos são permitidos apenas a partir de amanhã (D+1).");
-        el.dataAgendamento.value = state.selectedDate || tomorrowStr();
+        el.dataAgendamento.value = "";
+        alert("Por favor, selecione uma data a partir de amanhã. O agendamento no mesmo dia não é permitido.");
         return;
       }
     }
@@ -944,7 +945,7 @@ async function confirmarPagamentoComSinal() {
     // Determinar método de pagamento baseado na aba ativa
     const metodoPagamento = 'pix';
     
-    // Salvar agendamento com status pago (trigger automático)
+    // Salvar agendamento com status pendente de confirmação
     const booking = await bookSlotWithPayment({ 
       nome, 
       celular, 
@@ -956,8 +957,8 @@ async function confirmarPagamentoComSinal() {
       valorRestante,
       pagamentoId: 'manual_' + Date.now(),
       metodoPagamento,
-      statusFinanceiro: STATUS_FINANCEIRO.PAGO, // Status pago automaticamente
-      status: AGENDAMENTO_STATUS.CONFIRMADO // Status confirmado automaticamente
+      statusFinanceiro: STATUS_FINANCEIRO.PENDENTE_CONFIRMACAO, // Status pendente de confirmação
+      status: AGENDAMENTO_STATUS.PENDENTE // Status pendente até confirmação
     });
     
     // Fechar modal

@@ -1185,6 +1185,78 @@ a{color:inherit}
     width:120px;
     height:170px;
   }
+
+  /* Mentoria Section - Responsive Layout */
+  .mentoria-section {
+    padding: 40px 0;
+  }
+
+  .mentoria-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .mentoria-banner img {
+    min-height: 300px;
+    max-height: 400px;
+    object-fit: cover;
+  }
+
+  .mentoria-info h2 {
+    font-size: 1.8rem;
+  }
+
+  .carta-mentora {
+    padding: 15px;
+    margin: 12px 0;
+  }
+
+  .manual-mentoria h3 {
+    font-size: 0.9rem;
+    margin: 14px 0 8px;
+  }
+
+  .check-list li {
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+  }
+
+  .apostila-box {
+    padding: 15px;
+    margin-top: 15px;
+  }
+
+  .apostila-placeholder {
+    height: 280px;
+  }
+
+  .apostila-strip {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .apostila-strip img {
+    height: 100px;
+  }
+
+  .mentoria-lead {
+    margin-top: 15px;
+  }
+
+  .lead-form.compact {
+    max-width: 100%;
+  }
+
+  .lead-form input,
+  .lead-form select {
+    padding: 14px;
+  }
+
+  .frase-inspiradora {
+    padding: 12px 10px;
+    font-size: 0.9rem;
+    margin-top: 18px;
+  }
 }
 
 @keyframes slideUp {
