@@ -323,6 +323,12 @@ a{color:inherit}
 .reveal{position:relative;transform:translateY(50px);opacity:0;transition:1s all ease}
 .reveal.active{transform:translateY(0);opacity:1}
 
+/* CRITICAL FIX: Ensure content is visible by default to prevent blank screen */
+.reveal {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+
 /* Hero */
 .hero{
   padding:96px 0;

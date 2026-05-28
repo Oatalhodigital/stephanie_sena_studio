@@ -1230,22 +1230,36 @@ async function boot() {
   try {
     // PRIMEIRO: Garantir que o modal esteja absolutamente oculto
     ensureModalHidden();
-    
+
     window.addEventListener("scroll", reveal);
     reveal();
 
     initMentoria();
     initSchedulerEvents();
-    await initFirebase();
 
-    state.selectedDate = el.dataAgendamento.value || tomorrowStr();
-    await refreshInitialSlots(state.selectedDate);
-    await subscribeDay(state.selectedDate);
-    if (state.mode === "firebase") {
-      setInfo("info-ok", "Sistema online", "Agendamento em tempo real ativo. Escolha data e horário para reservar.");
-    } else {
-      setInfo("info-warn", "Modo local ativo", "Agendamento funcionando no site. Para sincronizar entre todos os clientes, conecte o Firebase.");
-    }
+    // CRITICAL FIX: Firebase initialization non-blocking to prevent render blocking
+    // Initialize Firebase in background without blocking content rendering
+    initFirebase().then(() => {
+      state.selectedDate = el.dataAgendamento.value || tomorrowStr();
+      refreshInitialSlots(state.selectedDate);
+      subscribeDay(state.selectedDate);
+      if (state.mode === "firebase") {
+        setInfo("info-ok", "Sistema online", "Agendamento em tempo real ativo. Escolha data e horário para reservar.");
+      } else {
+        setInfo("info-warn", "Modo local ativo", "Agendamento funcionando no site. Para sincronizar entre todos os clientes, conecte o Firebase.");
+      }
+    }).catch((error) => {
+      console.error("Erro na inicialização do Firebase (não bloqueante):", error);
+      // Site continues to work even if Firebase fails
+      try {
+        if (el.dataAgendamento) {
+          el.dataAgendamento.min = tomorrowStr();
+          el.dataAgendamento.value = tomorrowStr();
+        }
+      } catch (e) {
+        console.error("Erro ao configurar data mínima:", e);
+      }
+    });
   } catch (error) {
     console.error("Erro crítico na inicialização capturado:", error);
     // Garantir que o site continue funcionando mesmo com erro parcial
