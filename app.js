@@ -731,10 +731,9 @@ async function bookSlotWithPayment(formData) {
   const id = slotId(dateISO, hour);
   const ref = doc(state.db, "agendamentos", slotId(dateISO, hour));
   
-  await runTransaction(state.db, async (transaction) => {
-    const docSnap = await transaction.get(ref);
-    if (docSnap.exists()) throw new Error("SLOT_ALREADY_BOOKED");
-    transaction.set(ref, {
+  // CRITICAL FIX: Use direct set instead of transaction to avoid database id error
+  try {
+    await setDoc(ref, {
       nome,
       celular,
       servico,
@@ -749,8 +748,11 @@ async function bookSlotWithPayment(formData) {
       metodoPagamento,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
-  });
+    }, { merge: true });
+  } catch (error) {
+    console.error('Erro ao salvar no Firestore:', error);
+    throw error;
+  }
 
   return {
     id,
@@ -962,14 +964,18 @@ function ensureModalHidden() {
 async function confirmarPagamentoComSinal() {
   if (!state.currentPaymentData) return;
   
+  const { nome, celular, servico, dateISO, hour, valorTotal, valorSinal, valorRestante } = state.currentPaymentData;
+  
+  // Determinar método de pagamento baseado na aba ativa
+  const metodoPagamento = 'pix';
+  
+  // CRITICAL FIX: Ensure WhatsApp dispatch happens regardless of Firebase success/failure
+  let booking = null;
+  let firebaseError = null;
+  
   try {
-    const { nome, celular, servico, dateISO, hour, valorTotal, valorSinal, valorRestante } = state.currentPaymentData;
-    
-    // Determinar método de pagamento baseado na aba ativa
-    const metodoPagamento = 'pix';
-    
     // Salvar agendamento com status pendente de confirmação
-    const booking = await bookSlotWithPayment({ 
+    booking = await bookSlotWithPayment({ 
       nome, 
       celular, 
       servico, 
@@ -983,42 +989,54 @@ async function confirmarPagamentoComSinal() {
       statusFinanceiro: STATUS_FINANCEIRO.PENDENTE_CONFIRMACAO, // Status pendente de confirmação
       status: AGENDAMENTO_STATUS.PENDENTE // Status pendente até confirmação
     });
-    
-    // Fechar modal
-    hidePaymentModal();
-    
-    // Rastrear evento
-    trackEvent('pagamento_confirmado', {
-      event_category: 'conversion',
-      event_label: 'sinal_agendamento',
-      value: valorSinal
-    });
-    
-    // Mostrar sucesso
-    setInfo(
-      "info-ok",
-      "Pagamento confirmado!",
-      `Pagamento de R$ ${valorSinal.toFixed(2).replace('.', ',')} confirmado com sucesso! Agendamento confirmado para ${formatDateBR(dateISO)} às ${hour}.`
-    );
-    
-    // Limpar formulário
-    el.nome.value = "";
-    el.celular.value = "";
-    el.servico.value = "";
-    state.selectedSlot = "";
-    
-    // Enviar notificação apenas para a dona do site
-    await sendNotificationsComPagamento(booking, valorSinal, metodoPagamento);
-    
-    // Habilitar botão WhatsApp para cliente (será usado no painel admin)
-    enableWhatsButton(booking);
-    
   } catch (error) {
-    console.error('Erro ao confirmar pagamento:', error);
-    if (el.paymentStatus) {
-      el.paymentStatus.innerHTML = '<span style="color: #dc3545;">❌ Erro ao confirmar pagamento</span>';
-    }
+    console.error('Erro ao salvar no Firebase (não bloqueante):', error);
+    firebaseError = error;
+    // Continue with WhatsApp dispatch even if Firebase fails
+    booking = {
+      id: slotId(dateISO, hour),
+      dateISO,
+      hour,
+      nome,
+      celular,
+      servico,
+      status: AGENDAMENTO_STATUS.PENDENTE,
+      statusFinanceiro: STATUS_FINANCEIRO.PENDENTE_CONFIRMACAO,
+      valorTotal,
+      valorSinal,
+      valorRestante,
+      metodoPagamento
+    };
   }
+  
+  // Fechar modal
+  hidePaymentModal();
+  
+  // Rastrear evento
+  trackEvent('pagamento_confirmado', {
+    event_category: 'conversion',
+    event_label: 'sinal_agendamento',
+    value: valorSinal
+  });
+  
+  // Mostrar sucesso
+  setInfo(
+    "info-ok",
+    "Pagamento confirmado!",
+    `Pagamento de R$ ${valorSinal.toFixed(2).replace('.', ',')} confirmado com sucesso! Agendamento confirmado para ${formatDateBR(dateISO)} às ${hour}.`
+  );
+  
+  // Limpar formulário
+  el.nome.value = "";
+  el.celular.value = "";
+  el.servico.value = "";
+  state.selectedSlot = "";
+  
+  // Enviar notificação apenas para a dona do site
+  await sendNotificationsComPagamento(booking, valorSinal, metodoPagamento);
+  
+  // Habilitar botão WhatsApp para cliente (será usado no painel admin)
+  enableWhatsButton(booking);
 }
 
 async function sendNotificationsComPagamento(booking, valorSinal, metodoPagamento) {

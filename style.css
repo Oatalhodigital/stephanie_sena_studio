@@ -490,7 +490,7 @@ a{color:inherit}
   border:2px solid rgba(212,175,55,.3);
   box-shadow:0 20px 60px rgba(212,175,55,.15);
   padding:32px;
-  max-width:800px;
+  max-width:1000px;
   margin:0 auto;
 }
 .agendamento-card h2{
@@ -511,7 +511,7 @@ a{color:inherit}
 .servicos-note{
   margin-top:12px;
 }
-.lead-form{display:grid;gap:12px;margin-top:14px}
+.lead-form{display:grid;gap:16px;margin-top:14px}
 .lead-form label{display:grid;gap:6px}
 .lead-form span{font-size:.86rem;font-weight:800;color:#111827}
 .lead-form input,.lead-form select{
@@ -546,7 +546,7 @@ a{color:inherit}
 .slots-grid{
   display:grid;
   grid-template-columns:repeat(4, minmax(0,1fr));
-  gap:8px;
+  gap:12px;
 }
 .slot-btn{
   border:1px solid #d1d5db;
