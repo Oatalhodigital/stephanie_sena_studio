@@ -810,13 +810,21 @@ function initSchedulerEvents() {
       
       if (dayOfWeek === 0 || dayOfWeek === 1) {
         setInfo("info-error", "Dia indisponível", "Domingos e segundas-feiras não estão disponíveis para agendamento.");
+        // PREVENIR LOOP: Remover event listener temporariamente antes de mudar valor
+        el.dataAgendamento.removeEventListener("change", arguments.callee);
         el.dataAgendamento.value = state.selectedDate || tomorrowStr();
+        // Re-adicionar event listener após mudança
+        el.dataAgendamento.addEventListener("change", arguments.callee);
         return;
       }
 
       if (selectedDate <= todayStr()) {
         setInfo("info-error", "Data indisponível", "Agendamentos são permitidos apenas a partir de amanhã (D+1).");
+        // PREVENIR LOOP: Remover event listener temporariamente antes de mudar valor
+        el.dataAgendamento.removeEventListener("change", arguments.callee);
         el.dataAgendamento.value = "";
+        // Re-adicionar event listener após mudança
+        el.dataAgendamento.addEventListener("change", arguments.callee);
         alert("Por favor, selecione uma data a partir de amanhã. O agendamento no mesmo dia não é permitido.");
         return;
       }
