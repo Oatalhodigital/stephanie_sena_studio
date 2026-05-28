@@ -281,21 +281,22 @@ function clearRealtimeSubscription() {
 }
 
 async function subscribeDay(dateISO) {
-  if (!dateISO) return;
+  try {
+    if (!dateISO) return;
 
-  // Força uso do Firebase - sem fallback para localStorage
-  if (!state.firebaseReady || !state.db) {
-    console.error('Firebase não está pronto para inscrição em tempo real');
-    renderSlots([]);
-    return;
-  }
+    // Força uso do Firebase - sem fallback para localStorage
+    if (!state.firebaseReady || !state.db) {
+      console.error('Firebase não está pronto para inscrição em tempo real');
+      renderSlots([]);
+      return;
+    }
 
-  // LIMPEZA DE LISTENERS ANTERIORES - Prevenção de memory leak
-  clearRealtimeSubscription();
-  
-  // Buscar agendamentos e horários bloqueados simultaneamente
-  const agendamentosQuery = query(collection(state.db, "agendamentos"), where("dateISO", "==", dateISO));
-  const bloqueadosQuery = query(collection(state.db, "horarios_bloqueados"), where("dateISO", "==", dateISO));
+    // LIMPEZA DE LISTENERS ANTERIORES - Prevenção de memory leak
+    clearRealtimeSubscription();
+    
+    // Buscar agendamentos e horários bloqueados simultaneamente
+    const agendamentosQuery = query(collection(state.db, "agendamentos"), where("dateISO", "==", dateISO));
+    const bloqueadosQuery = query(collection(state.db, "horarios_bloqueados"), where("dateISO", "==", dateISO));
   
   // Listener para agendamentos com tratamento de erro robusto
   const agendamentosUnsubscribe = onSnapshot(
@@ -350,6 +351,10 @@ async function subscribeDay(dateISO) {
   );
   
   state.activeUnsubscribe = agendamentosUnsubscribe;
+  } catch (error) {
+    console.error('Erro ao inscrever em atualizações em tempo real:', error);
+    renderSlots([]);
+  }
 }
 
 function localKey(dateISO) {
