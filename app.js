@@ -200,7 +200,7 @@ async function getFirebaseConfig() {
       storageBucket: "studio-stephanie-sena.firebasestorage.app",
       messagingSenderId: "697438120393",
       appId: "1:697438120393:web:b586bef9902f767684e018",
-      measurementId: "G-T2XMTXZ81M"
+      measurementId: "G-3YDL10VWW6"
     };
     return firebaseConfig;
   } catch (error) {
