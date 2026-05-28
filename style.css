@@ -471,7 +471,7 @@ a{color:inherit}
 .portfolio-cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}
 
 /* Agendamento */
-.secao-agendamento{padding:86px 0;background:#fff}
+.secao-agendamento{padding:86px 0;background:#fff;min-height: 100vh;}
 .agendamento-grid{
   display:grid;
   grid-template-columns: 1fr 1.5fr;
@@ -479,6 +479,7 @@ a{color:inherit}
   align-items:stretch;
   max-width: 1100px;
   margin: 0 auto;
+  height: auto;
 }
 .agendamento-card{
   background:#fff;
@@ -487,6 +488,8 @@ a{color:inherit}
   box-shadow:0 18px 50px rgba(0,0,0,.06);
   padding:32px;
   width:100%;
+  height: auto;
+  overflow: visible;
 }
 .agendamento-card:not(.servicos-card){
   border:2px solid rgba(212,175,55,.3);
@@ -494,6 +497,8 @@ a{color:inherit}
   padding:40px;
   max-width: 100%;
   margin:0;
+  height: auto;
+  overflow: visible;
 }
 .agendamento-card h2{
   font-family:'Playfair Display',serif;
