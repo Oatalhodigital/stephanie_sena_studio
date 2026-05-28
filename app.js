@@ -217,14 +217,23 @@ async function initFirebase() {
     }
 
     const app = initializeApp(firebaseConfig);
-    state.db = getFirestore(app);
+    // CORREÇÃO CRÍTICA: Adicionar experimentalAutoDetectLongPolling para evitar erro 400 Bad Request
+    // Isso força o Firestore a usar long-polling em vez de WebSockets/QUIC que podem falhar
+    state.db = getFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+      cacheSizeBytes: 4096
+    });
     state.firebaseReady = true;
     state.mode = "firebase";
     disableScheduler(false);
     setInfo("info-ok", "Sistema online", "Agendamento em tempo real ativo. Escolha data e horário para reservar.");
   } catch (error) {
     console.error('Erro ao inicializar Firebase:', error);
-    setInfo("info-error", "Erro de conexão", "Não foi possível conectar ao Firebase. Tente recarregar a página.");
+    // Fallback para modo local se Firebase falhar - site continua funcionando
+    state.firebaseReady = false;
+    state.mode = "local";
+    disableScheduler(false);
+    setInfo("info-warn", "Modo local ativo", "Agendamento funcionando no site. Para sincronizar entre todos os clientes, conecte o Firebase.");
   }
 }
 
@@ -783,12 +792,13 @@ async function refreshInitialSlots(dateISO) {
 }
 
 function initSchedulerEvents() {
-  if (!el.dataAgendamento || !el.leadForm || !el.slotsGrid) return;
+  try {
+    if (!el.dataAgendamento || !el.leadForm || !el.slotsGrid) return;
 
-  el.dataAgendamento.min = tomorrowStr();
-  el.dataAgendamento.value = tomorrowStr();
-  state.selectedDate = el.dataAgendamento.value;
-  renderSlots([]);
+    el.dataAgendamento.min = tomorrowStr();
+    el.dataAgendamento.value = tomorrowStr();
+    state.selectedDate = el.dataAgendamento.value;
+    renderSlots([]);
 
   el.dataAgendamento.addEventListener("change", async () => {
     const selectedDate = el.dataAgendamento.value;
@@ -913,6 +923,9 @@ function initSchedulerEvents() {
         hidePaymentModal();
       }
     });
+  }
+  } catch (error) {
+    console.error("Erro ao inicializar eventos do agendamento:", error);
   }
 }
 
@@ -1206,23 +1219,36 @@ async function finalizarProcessoCompleto(paymentResult) {
 }
 
 async function boot() {
-  // PRIMEIRO: Garantir que o modal esteja absolutamente oculto
-  ensureModalHidden();
-  
-  window.addEventListener("scroll", reveal);
-  reveal();
+  try {
+    // PRIMEIRO: Garantir que o modal esteja absolutamente oculto
+    ensureModalHidden();
+    
+    window.addEventListener("scroll", reveal);
+    reveal();
 
-  initMentoria();
-  initSchedulerEvents();
-  await initFirebase();
+    initMentoria();
+    initSchedulerEvents();
+    await initFirebase();
 
-  state.selectedDate = el.dataAgendamento.value || tomorrowStr();
-  await refreshInitialSlots(state.selectedDate);
-  await subscribeDay(state.selectedDate);
-  if (state.mode === "firebase") {
-    setInfo("info-ok", "Sistema online", "Agendamento em tempo real ativo. Escolha data e horário para reservar.");
-  } else {
-    setInfo("info-warn", "Modo local ativo", "Agendamento funcionando no site. Para sincronizar entre todos os clientes, conecte o Firebase.");
+    state.selectedDate = el.dataAgendamento.value || tomorrowStr();
+    await refreshInitialSlots(state.selectedDate);
+    await subscribeDay(state.selectedDate);
+    if (state.mode === "firebase") {
+      setInfo("info-ok", "Sistema online", "Agendamento em tempo real ativo. Escolha data e horário para reservar.");
+    } else {
+      setInfo("info-warn", "Modo local ativo", "Agendamento funcionando no site. Para sincronizar entre todos os clientes, conecte o Firebase.");
+    }
+  } catch (error) {
+    console.error("Erro crítico na inicialização capturado:", error);
+    // Garantir que o site continue funcionando mesmo com erro parcial
+    try {
+      if (el.dataAgendamento) {
+        el.dataAgendamento.min = tomorrowStr();
+        el.dataAgendamento.value = tomorrowStr();
+      }
+    } catch (e) {
+      console.error("Erro ao configurar data mínima:", e);
+    }
   }
 }
 
