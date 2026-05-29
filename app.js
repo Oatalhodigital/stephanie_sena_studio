@@ -261,6 +261,9 @@ function renderSlots(bookedHourList) {
     if (booked.has(hour)) {
       b.classList.add("is-booked");
       b.disabled = true;
+      b.style.textDecoration = "line-through";
+      b.style.opacity = "0.4";
+      b.style.cursor = "not-allowed";
       b.title = "Horário já reservado";
     } else if (hour === selected) {
       b.classList.add("is-selected");
