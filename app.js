@@ -307,9 +307,9 @@ async function subscribeDay(dateISO) {
         agendamentosSnapshot.forEach((d) => {
           const row = d.data();
           // CORREÇÃO CRÍTICA: Horários cancelados DEVEM ser liberados imediatamente
-          // Apenas status 'confirmado', 'pendente' e 'bloqueado' ocupam o horário
+          // Apenas status 'confirmado', 'pendente', 'bloqueado', 'pago', 'pago_confirmado' ocupam o horário
           // Status 'cancelado' libera o horário para novos agendamentos
-          if (row?.hour && (row.status === 'confirmado' || row.status === 'pendente' || row.status === 'bloqueado')) {
+          if (row?.hour && (row.status === 'confirmado' || row.status === 'pendente' || row.status === 'bloqueado' || row.status === 'pago' || row.status === 'pago_confirmado' || row.status === 'pago_pendente')) {
             booked.push(row.hour);
           }
         });
@@ -736,8 +736,18 @@ async function bookSlotWithPayment(formData) {
   const id = slotId(dateISO, hour);
   const ref = doc(state.db, "agendamentos", slotId(dateISO, hour));
   
-  // CRITICAL FIX: Use direct set instead of transaction to avoid database id error
+  // CRITICAL FIX: Last-minute verification to prevent double booking
   try {
+    const docSnap = await getDoc(ref);
+    if (docSnap.exists()) {
+      const existingData = docSnap.data();
+      // Check if existing booking is not cancelled
+      if (existingData.status !== 'cancelado') {
+        throw new Error("SLOT_ALREADY_BOOKED");
+      }
+    }
+    
+    // CRITICAL FIX: Use direct set instead of transaction to avoid database id error
     await setDoc(ref, {
       nome,
       celular,
@@ -789,9 +799,9 @@ async function refreshInitialSlots(dateISO) {
   snapshot.forEach((d) => {
     const row = d.data();
     // CORREÇÃO CRÍTICA: Horários cancelados DEVEM ser liberados imediatamente
-    // Apenas status 'confirmado', 'pendente' e 'bloqueado' ocupam o horário
+    // Apenas status 'confirmado', 'pendente', 'bloqueado', 'pago', 'pago_confirmado' ocupam o horário
     // Status 'cancelado' libera o horário para novos agendamentos
-    if (row?.hour && (row.status === 'confirmado' || row.status === 'pendente' || row.status === 'bloqueado')) {
+    if (row?.hour && (row.status === 'confirmado' || row.status === 'pendente' || row.status === 'bloqueado' || row.status === 'pago' || row.status === 'pago_confirmado' || row.status === 'pago_pendente')) {
       booked.push(row.hour);
     }
   });
