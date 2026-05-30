@@ -250,6 +250,9 @@ function renderSlots(bookedHourList) {
   const booked = new Set(bookedHourList || []);
   const slots = createHourSlots(state.selectedDate);
 
+  console.log('🎨 renderSlots chamado com horários ocupados:', bookedHourList);
+  console.log('🎨 Horários disponíveis para renderizar:', slots);
+
   el.slotsGrid.innerHTML = "";
   slots.forEach((hour) => {
     const b = document.createElement("button");
@@ -265,11 +268,14 @@ function renderSlots(bookedHourList) {
       b.style.opacity = "0.4";
       b.style.cursor = "not-allowed";
       b.title = "Horário já reservado";
+      console.log('🔒 Horário bloqueado visualmente:', hour);
     } else if (hour === selected) {
       b.classList.add("is-selected");
     }
     el.slotsGrid.appendChild(b);
   });
+
+  console.log('🎨 Total de botões renderizados:', slots.length);
 }
 
 function clearRealtimeSubscription() {
@@ -286,6 +292,8 @@ function clearRealtimeSubscription() {
 async function subscribeDay(dateISO) {
   try {
     if (!dateISO) return;
+
+    console.log('📅 subscribeDay chamado para data:', dateISO);
 
     // Força uso do Firebase - sem fallback para localStorage
     if (!state.firebaseReady || !state.db) {
@@ -306,14 +314,17 @@ async function subscribeDay(dateISO) {
     agendamentosQuery,
     async (agendamentosSnapshot) => {
       try {
+        console.log('🔄 Snapshot recebido para data:', dateISO, 'Documentos:', agendamentosSnapshot.docs.length);
         const booked = [];
         agendamentosSnapshot.forEach((d) => {
           const row = d.data();
+          console.log('📋 Documento:', row);
           // CORREÇÃO CRÍTICA: Horários cancelados DEVEM ser liberados imediatamente
           // Apenas status 'confirmado', 'pendente', 'bloqueado', 'pago', 'pago_confirmado' ocupam o horário
           // Status 'cancelado' libera o horário para novos agendamentos
           if (row?.hour && (row.status === 'confirmado' || row.status === 'pendente' || row.status === 'bloqueado' || row.status === 'pago' || row.status === 'pago_confirmado' || row.status === 'pago_pendente')) {
             booked.push(row.hour);
+            console.log('✅ Horário ocupado adicionado:', row.hour, 'Status:', row.status);
           }
         });
 
@@ -322,13 +333,18 @@ async function subscribeDay(dateISO) {
           const bloqueadosSnapshot = await getDocs(bloqueadosQuery);
           bloqueadosSnapshot.forEach((d) => {
             const row = d.data();
-            if (row?.hour) booked.push(row.hour);
+            if (row?.hour) {
+              booked.push(row.hour);
+              console.log('🔒 Horário bloqueado adicionado:', row.hour);
+            }
           });
         } catch (error) {
           // Silenciar erro de permissão - a coleção pode não existir ou não ter regras configuradas
           // O site continua funcionando normalmente sem horários bloqueados
           console.log('Horários bloqueados não disponíveis (coleção pode não existir)');
         }
+
+        console.log('📊 Lista final de horários ocupados:', booked);
 
         if (state.selectedSlot && booked.includes(state.selectedSlot)) {
           state.selectedSlot = "";
@@ -738,19 +754,24 @@ async function bookSlotWithPayment(formData) {
   const { nome, celular, servico, dateISO, hour, valorTotal, valorSinal, valorRestante, pagamentoId, metodoPagamento, statusFinanceiro } = formData;
   const id = slotId(dateISO, hour);
   const ref = doc(state.db, "agendamentos", slotId(dateISO, hour));
+
+  console.log('💾 bookSlotWithPayment chamado para:', { dateISO, hour, nome });
   
   // CRITICAL FIX: Last-minute verification to prevent double booking
   try {
     const docSnap = await getDoc(ref);
     if (docSnap.exists()) {
       const existingData = docSnap.data();
+      console.log('⚠️ Documento já existe:', existingData);
       // Check if existing booking is not cancelled
       if (existingData.status !== 'cancelado') {
+        console.log('❌ Horário já ocupado, lançando erro SLOT_ALREADY_BOOKED');
         throw new Error("SLOT_ALREADY_BOOKED");
       }
     }
     
     // CRITICAL FIX: Use direct set instead of transaction to avoid database id error
+    console.log('✅ Salvando novo agendamento no Firestore...');
     await setDoc(ref, {
       nome,
       celular,
@@ -767,6 +788,7 @@ async function bookSlotWithPayment(formData) {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     }, { merge: true });
+    console.log('✅ Agendamento salvo com sucesso!');
   } catch (error) {
     console.error('Erro ao salvar no Firestore:', error);
     throw error;
