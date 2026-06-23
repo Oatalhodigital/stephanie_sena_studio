@@ -496,68 +496,6 @@ loginForm.addEventListener('submit', async (e) => {
   }
 });
 
-// Função de Sync/Recovery para recuperar agendamentos >= 2026-05-01
-window.syncRecoveryAgendamentos = async function() {
-  try {
-    console.log('🔄 Iniciando Sync/Recovery de agendamentos...');
-    
-    // Buscar todos os agendamentos sem filtro
-    const q = query(collection(db, "agendamentos"));
-    const snapshot = await getDocs(q);
-    
-    let recuperados = 0;
-    let corrigidos = 0;
-    
-    for (const docSnapshot of snapshot.docs) {
-      const booking = docSnapshot.data();
-      
-      // Verificar se é um agendamento a partir de 01/05/2026
-      if (booking.dateISO >= "2026-05-01") {
-        
-        // Se estiver arquivado indevidamente, recuperar
-        if (booking.arquivado === true && booking.dateISO >= new Date().toISOString().split('T')[0]) {
-          await updateDoc(docSnapshot.ref, {
-            arquivado: false,
-            dataArquivamento: null,
-            updatedAt: serverTimestamp()
-          });
-          recuperados++;
-          console.log(`✅ Agendamento recuperado: ${booking.nome} - ${booking.dateISO} ${booking.hour}`);
-        }
-        
-        // Garantir que não está arquivado se for futuro
-        const dataAgendamento = new Date(booking.dateISO);
-        const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0);
-        
-        if (dataAgendamento >= hoje && booking.arquivado === true) {
-          await updateDoc(docSnapshot.ref, {
-            arquivado: false,
-            dataArquivamento: null,
-            updatedAt: serverTimestamp()
-          });
-          corrigidos++;
-          console.log(`🔧 Agendamento corrigido: ${booking.nome} - ${booking.dateISO} ${booking.hour}`);
-        }
-      }
-    }
-    
-    console.log(`📊 Sync/Recovery concluído:`);
-    console.log(`- Agendamentos recuperados: ${recuperados}`);
-    console.log(`- Agendamentos corrigidos: ${corrigidos}`);
-    
-    // Recarregar dados
-    await loadBookings();
-    
-    alert(`Sync/Recovery concluído!\n${recuperados} agendamentos recuperados\n${corrigidos} agendamentos corrigidos`);
-    
-  } catch (error) {
-    console.error('❌ Erro no Sync/Recovery:', error);
-    alert('Erro ao executar Sync/Recovery. Verifique o console.');
-  }
-};
-window.syncRecoveryAgendamentos = window.syncRecoveryAgendamentos;
-
 // Arquivar automaticamente agendamentos de datas e horas passadas (CORRIGIDO)
 async function arquivarAgendamentosAntigos() {
   try {

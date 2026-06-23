@@ -10,7 +10,9 @@ import {
   getDocs,
   getDoc,
   serverTimestamp,
-  updateDoc
+  updateDoc,
+  addDoc,
+  setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 const STUDIO_WHATSAPP = "5531993627475";
@@ -493,9 +495,21 @@ async function bookSlot(formData) {
     throw new Error("Segundas-feiras não estão disponíveis para agendamento (folga da profissional). Por favor, escolha outro dia.");
   }
   
+  const id = slotId(dateISO, hour);
+  const ref = doc(state.db, "agendamentos", id);
+  
   try {
-    // Salvar no Firebase
-    const docRef = await addDoc(collection(state.db, "agendamentos"), {
+    // Verificar se o horário já está ocupado
+    const docSnap = await getDoc(ref);
+    if (docSnap.exists()) {
+      const existingData = docSnap.data();
+      if (existingData.status !== 'cancelado') {
+        throw new Error("SLOT_ALREADY_BOOKED");
+      }
+    }
+    
+    // Salvar no Firebase com ID consistente (dataISO_hora)
+    await setDoc(ref, {
       nome,
       celular,
       servico,
@@ -504,10 +518,10 @@ async function bookSlot(formData) {
       status: AGENDAMENTO_STATUS.PENDENTE,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
+    }, { merge: true });
 
     const booking = {
-      id: docRef.id,
+      id,
       nome,
       celular,
       servico,
@@ -1014,7 +1028,7 @@ async function confirmarPagamentoComSinal() {
   let firebaseError = null;
   
   try {
-    // Salvar agendamento com status pendente de confirmação
+    // Salvar agendamento com status confirmado após pagamento do sinal
     booking = await bookSlotWithPayment({ 
       nome, 
       celular, 
@@ -1026,8 +1040,8 @@ async function confirmarPagamentoComSinal() {
       valorRestante,
       pagamentoId: 'manual_' + Date.now(),
       metodoPagamento,
-      statusFinanceiro: STATUS_FINANCEIRO.PENDENTE_CONFIRMACAO, // Status pendente de confirmação
-      status: AGENDAMENTO_STATUS.PENDENTE // Status pendente até confirmação
+      statusFinanceiro: STATUS_FINANCEIRO.PENDENTE_CONFIRMACAO, // Status pendente de confirmação do sinal
+      status: AGENDAMENTO_STATUS.CONFIRMADO // Status confirmado após pagamento
     });
   } catch (error) {
     console.error('Erro ao salvar no Firebase (não bloqueante):', error);
