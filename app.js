@@ -499,26 +499,34 @@ async function bookSlot(formData) {
   const ref = doc(state.db, "agendamentos", id);
   
   try {
-    // Verificar se o horário já está ocupado
-    const docSnap = await getDoc(ref);
-    if (docSnap.exists()) {
-      const existingData = docSnap.data();
-      if (existingData.status !== 'cancelado') {
-        throw new Error("SLOT_ALREADY_BOOKED");
+    // USO DE TRANSAÇÃO PARA PREVENIR DOUBLE-BOOKING
+    // A transação garante atomicidade: verifica e grava em uma operação atômica
+    await runTransaction(state.db, async (transaction) => {
+      const docSnap = await transaction.get(ref);
+      
+      if (docSnap.exists()) {
+        const existingData = docSnap.data();
+        // Se o horário já está ocupado e não foi cancelado, aborta a transação
+        if (existingData.status !== 'cancelado') {
+          console.log('❌ Horário já ocupado, abortando transação:', existingData);
+          throw new Error("SLOT_ALREADY_BOOKED");
+        }
       }
-    }
-    
-    // Salvar no Firebase com ID consistente (dataISO_hora)
-    await setDoc(ref, {
-      nome,
-      celular,
-      servico,
-      dateISO,
-      hour,
-      status: AGENDAMENTO_STATUS.PENDENTE,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
+      
+      // Se o horário está livre ou foi cancelado, cria/atualiza o agendamento
+      transaction.set(ref, {
+        nome,
+        celular,
+        servico,
+        dateISO,
+        hour,
+        status: AGENDAMENTO_STATUS.PENDENTE,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      
+      console.log('✅ Transação concluída com sucesso para:', id);
+    });
 
     const booking = {
       id,
@@ -771,38 +779,42 @@ async function bookSlotWithPayment(formData) {
 
   console.log('💾 bookSlotWithPayment chamado para:', { dateISO, hour, nome });
   
-  // CRITICAL FIX: Last-minute verification to prevent double booking
+  // USO DE TRANSAÇÃO PARA PREVENIR DOUBLE-BOOKING
+  // A transação garante atomicidade: verifica e grava em uma operação atômica
   try {
-    const docSnap = await getDoc(ref);
-    if (docSnap.exists()) {
-      const existingData = docSnap.data();
-      console.log('⚠️ Documento já existe:', existingData);
-      // Check if existing booking is not cancelled
-      if (existingData.status !== 'cancelado') {
-        console.log('❌ Horário já ocupado, lançando erro SLOT_ALREADY_BOOKED');
-        throw new Error("SLOT_ALREADY_BOOKED");
+    await runTransaction(state.db, async (transaction) => {
+      const docSnap = await transaction.get(ref);
+      
+      if (docSnap.exists()) {
+        const existingData = docSnap.data();
+        console.log('⚠️ Documento já existe:', existingData);
+        // Se o horário já está ocupado e não foi cancelado, aborta a transação
+        if (existingData.status !== 'cancelado') {
+          console.log('❌ Horário já ocupado, abortando transação');
+          throw new Error("SLOT_ALREADY_BOOKED");
+        }
       }
-    }
-    
-    // CRITICAL FIX: Use direct set instead of transaction to avoid database id error
-    console.log('✅ Salvando novo agendamento no Firestore...');
-    await setDoc(ref, {
-      nome,
-      celular,
-      servico,
-      dateISO,
-      hour,
-      status: AGENDAMENTO_STATUS.CONFIRMADO, // Confirmado automaticamente após pagamento
-      statusFinanceiro,
-      valorTotal,
-      valorSinal,
-      valorRestante,
-      pagamentoId,
-      metodoPagamento,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-    console.log('✅ Agendamento salvo com sucesso!');
+      
+      // Se o horário está livre ou foi cancelado, cria/atualiza o agendamento
+      console.log('✅ Salvando novo agendamento no Firestore via transação...');
+      transaction.set(ref, {
+        nome,
+        celular,
+        servico,
+        dateISO,
+        hour,
+        status: AGENDAMENTO_STATUS.CONFIRMADO, // Confirmado automaticamente após pagamento
+        statusFinanceiro,
+        valorTotal,
+        valorSinal,
+        valorRestante,
+        pagamentoId,
+        metodoPagamento,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      console.log('✅ Transação concluída com sucesso!');
+    });
   } catch (error) {
     console.error('Erro ao salvar no Firestore:', error);
     throw error;

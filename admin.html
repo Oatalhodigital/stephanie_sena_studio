@@ -623,12 +623,21 @@
         <button id="btnUnblockTime" class="btn-action btn-cancel-booking" style="flex: 1;">✅ Desbloquear Horário</button>
       </div>
       
-      <h2>�📋 Filtros</h2>
+      <h2>📋 Filtros</h2>
       <div class="filter-buttons">
         <button class="filter-btn active" data-filter="hoje">Hoje</button>
         <button class="filter-btn" data-filter="semana">Esta Semana</button>
         <button class="filter-btn" data-filter="mes_atual">Mês Atual</button>
         <button class="filter-btn" data-filter="aguardando_pagamento">Aguardando Pagamento</button>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <button id="btnForceSync" class="btn-action btn-confirm-sinal" style="flex: 1;">
+          🔄 Sincronizar/Atualizar Dados
+        </button>
+        <button id="btnClearDay" class="btn-action btn-cancel-booking" style="flex: 1;">
+          ✅ Limpar Horários do Dia
+        </button>
       </div>
 
       <div id="bookingsList">

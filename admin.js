@@ -13,7 +13,8 @@ import {
   addDoc,
   deleteDoc,
   serverTimestamp,
-  onSnapshot
+  onSnapshot,
+  writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 // Configuração Firebase (mesma do firebase-config.js)
@@ -53,6 +54,8 @@ const btnCleanHistory = document.getElementById('btnCleanHistory');
 const btnViewHistory = document.getElementById('btnViewHistory');
 const btnExportData = document.getElementById('btnExportData');
 const btnSyncRecovery = document.getElementById('btnSyncRecovery');
+const btnForceSync = document.getElementById('btnForceSync');
+const btnClearDay = document.getElementById('btnClearDay');
 
 // Senha de acesso (simples para demonstração)
 const ADMIN_PASSWORD = 'stephanie2026';
@@ -753,7 +756,18 @@ window.filterBookings = window.filterBookings;
 // Renderizar agendamentos
 function renderBookings(bookings) {
   if (bookings.length === 0) {
-    bookingsList.innerHTML = '<p style="text-align: center; color: #6b7280;">Nenhum agendamento encontrado</p>';
+    // Feedback visual profissional quando o painel estiver vazio
+    const emptyMessage = currentFilter === 'hoje' 
+      ? '✅ Todos os horários estão livres ou concluídos para hoje.' 
+      : 'Nenhum agendamento encontrado para este filtro.';
+    
+    bookingsList.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+        <div style="font-size: 48px; margin-bottom: 16px;">📅</div>
+        <p style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">${emptyMessage}</p>
+        <p style="font-size: 14px; color: #9ca3af;">Use os filtros acima para visualizar outros períodos ou clique em "Sincronizar/Atualizar Dados" para recarregar.</p>
+      </div>
+    `;
     return;
   }
   
@@ -855,7 +869,8 @@ function getStatusLabel(status) {
   const labels = {
     'pendente': '🟡 PENDENTE',
     'confirmado': '🟢 CONFIRMADO',
-    'cancelado': '🔴 CANCELADO'
+    'cancelado': '🔴 CANCELADO',
+    'concluido': '✅ CONCLUÍDO'
   };
   return labels[status] || status;
 }
@@ -874,11 +889,16 @@ function getActionButtons(booking) {
     </button>`);
   }
   
-  // Status CONFIRMADO: Botão principal de WhatsApp e cancelar secundário
+  // Status CONFIRMADO: Botão principal de WhatsApp, concluir e cancelar secundário
   else if (booking.status === 'confirmado') {
     // Botão principal de WhatsApp (estilo WhatsApp)
     buttons.push(`<button class="btn-action btn-whatsapp-primary" onclick="enviarConfirmacaoCliente('${booking.id}')">
       📱 Enviar Confirmação p/ Cliente
+    </button>`);
+    
+    // Botão de concluir atendimento
+    buttons.push(`<button class="btn-action btn-confirm-sinal" onclick="concluirAtendimento('${booking.id}')">
+      ✅ Concluir Atendimento
     </button>`);
     
     // Botão de cancelar secundário (menor)
@@ -950,6 +970,40 @@ window.confirmarAgendamento = async function(bookingId) {
   }
 };
 window.confirmarAgendamento = window.confirmarAgendamento;
+
+// Concluir atendimento
+window.concluirAtendimento = async function(bookingId) {
+  try {
+    if (!bookingId || bookingId.trim() === '') {
+      console.error('ID do agendamento inválido:', bookingId);
+      return;
+    }
+
+    // Confirmar ação
+    if (!confirm('Deseja concluir este atendimento? O status será atualizado para "Concluído".')) {
+      return;
+    }
+
+    // Atualizar status no Firebase
+    const ref = doc(db, "agendamentos", bookingId);
+    await updateDoc(ref, {
+      status: 'concluido',
+      updatedAt: serverTimestamp()
+    });
+
+    // Recarregar lista
+    await loadBookings();
+    
+    // Log de sucesso
+    console.log(`Atendimento ${bookingId} concluído com sucesso`);
+    showNotification('Atendimento concluído com sucesso!');
+    
+  } catch (error) {
+    console.error('Erro ao concluir atendimento:', error);
+    alert('Erro ao concluir atendimento. Tente novamente.');
+  }
+};
+window.concluirAtendimento = window.concluirAtendimento;
 
 // Cancelar agendamento do painel admin
 window.cancelarAgendamentoAdmin = async function(bookingId) {
@@ -1490,6 +1544,22 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
   });
 });
 
+// Event listener para botão de sincronização forçada
+if (btnForceSync) {
+  addMobileCompatibleEvent(btnForceSync, 'click', () => {
+    console.log('🔄 Botão de sincronização forçada clicado');
+    forceSyncData();
+  });
+}
+
+// Event listener para botão de limpar horários do dia
+if (btnClearDay) {
+  addMobileCompatibleEvent(btnClearDay, 'click', () => {
+    console.log('🧹 Botão de limpar horários do dia clicado');
+    limparHorariosDoDia();
+  });
+}
+
 // Funções de Bloqueio de Horários
 window.blockTimeSlot = async function() {
   try {
@@ -1885,6 +1955,99 @@ window.cleanOldBookings = window.cleanOldBookings; // Garante que HTML enxergue 
 // 🗑️ FUNÇÃO DUPLICADA REMOVIDA: loadHistory (movida para o topo com implementação completa)
 
 // �️ FUNÇÃO DUPLICADA REMOVIDA: exportData (movida para o topo)
+
+// ✅ FUNÇÃO: Limpar Horários do Dia (Batch Update)
+window.limparHorariosDoDia = async function() {
+  try {
+    // Confirmar ação
+    if (!confirm('Deseja limpar todos os horários do dia? Isso mudará o status de todos os agendamentos confirmados de hoje para "concluido". O histórico financeiro será preservado.')) {
+      return;
+    }
+
+    // Obter data atual no formato YYYY-MM-DD
+    const hoje = new Date().toISOString().split('T')[0];
+    console.log('🧹 Iniciando limpeza de horários do dia:', hoje);
+
+    // Buscar todos os agendamentos confirmados de hoje
+    const q = query(
+      collection(db, "agendamentos"),
+      where("dateISO", "==", hoje),
+      where("status", "==", "confirmado")
+    );
+
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      alert('Não há agendamentos confirmados para hoje.');
+      return;
+    }
+
+    // Criar batch para atualização em lote
+    const batch = writeBatch(db);
+    let count = 0;
+
+    snapshot.forEach((docSnapshot) => {
+      const ref = doc(db, "agendamentos", docSnapshot.id);
+      batch.update(ref, {
+        status: 'concluido',
+        updatedAt: serverTimestamp()
+      });
+      count++;
+    });
+
+    // Executar batch
+    await batch.commit();
+    console.log(`✅ ${count} agendamentos atualizados para "concluido"`);
+
+    // Recarregar lista
+    await loadBookings();
+    
+    // Mostrar notificação
+    showNotification(`${count} agendamentos concluídos com sucesso!`);
+    
+  } catch (error) {
+    console.error('Erro ao limpar horários do dia:', error);
+    alert('Erro ao limpar horários do dia. Tente novamente.');
+  }
+};
+window.limparHorariosDoDia = window.limparHorariosDoDia;
+
+// 🔄 FUNÇÃO: Sincronização Forçada (Force Reload)
+window.forceSyncData = async function() {
+  try {
+    console.log('🔄 Iniciando sincronização forçada...');
+    
+    // Mostrar indicador de carregamento
+    bookingsList.innerHTML = '<p style="text-align: center; color: #6b7280;">🔄 Sincronizando dados...</p>';
+
+    // Limpar estado local
+    allBookings = [];
+    
+    // Buscar dados frescos do Firestore
+    const q = query(collection(db, "agendamentos"), orderBy("dateISO", "asc"));
+    const snapshot = await getDocs(q);
+    
+    // Atualizar estado local
+    allBookings = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    console.log(`🔄 ${allBookings.length} agendamentos carregados do Firestore`);
+    
+    // Aplicar filtros e renderizar
+    filterBookings();
+    
+    // Mostrar notificação
+    showNotification('Dados sincronizados com sucesso!');
+    
+  } catch (error) {
+    console.error('Erro ao sincronizar dados:', error);
+    bookingsList.innerHTML = '<p style="text-align: center; color: #dc3545;">Erro ao sincronizar dados. Tente novamente.</p>';
+    alert('Erro ao sincronizar dados. Tente novamente.');
+  }
+};
+window.forceSyncData = window.forceSyncData;
 
 // 🔄 AUTO-RECARGAMENTO INTELIGENTE (Modernizado)
 const autoRefreshInterval = setInterval(() => {
