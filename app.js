@@ -219,12 +219,9 @@ async function initFirebase() {
     }
 
     const app = initializeApp(firebaseConfig);
-    // CORREÇÃO CRÍTICA: Adicionar experimentalAutoDetectLongPolling para evitar erro 400 Bad Request
-    // Isso força o Firestore a usar long-polling em vez de WebSockets/QUIC que podem falhar
-    state.db = getFirestore(app, {
-      experimentalAutoDetectLongPolling: true,
-      cacheSizeBytes: 4096
-    });
+    // CORREÇÃO CRÍTICA: getFirestore deve receber apenas o app, não objeto de configuração
+    // O erro "Invalid database id [object Object]" ocorre quando passamos um objeto como segundo parâmetro
+    state.db = getFirestore(app);
     state.firebaseReady = true;
     state.mode = "firebase";
     disableScheduler(false);
